@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Check, Percent, ShieldCheck, RefreshCw, Sliders, ArrowDownRight, AlertCircle } from 'lucide-react';
+import { 
+  X, 
+  Sparkles, 
+  Check, 
+  Percent, 
+  Sliders, 
+  Scale, 
+  AlertCircle, 
+  RefreshCw, 
+  PieChart, 
+  ShieldCheck, 
+  ArrowRight 
+} from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { formatMoney, getTotalPercentage, normalizePercentages, POCKET_COLORS } from '../utils/storage';
+import { formatMoney, POCKET_COLORS } from '../utils/storage';
 import { sounds, triggerHaptic } from '../utils/audio';
 
 export default function SplitMoneyModal({ 
@@ -13,117 +25,132 @@ export default function SplitMoneyModal({
   onConfirmSplit 
 }) {
   const [totalToSplit, setTotalToSplit] = useState('1000');
-  const [strategy, setStrategy] = useState('percentage'); // 'percentage' | 'targets' | 'even' | 'custom'
-  const [allocations, setAllocations] = useState({});
+  // Local editable percentages for each pocket: { [pocketId]: number }
+  const [sliderPercentages, setSliderPercentages] = useState({});
+  const [saveAsDefault, setSaveAsDefault] = useState(true);
 
+  // Initialize slider percentages when modal opens
   useEffect(() => {
     if (isOpen) {
-      // Default to 1000 or unallocated funds if positive
-      const initial = unallocatedFunds > 0 ? unallocatedFunds : 1000;
-      setTotalToSplit(initial.toString());
-      setStrategy('percentage');
-    }
-  }, [isOpen, unallocatedFunds]);
+      const initialAmount = unallocatedFunds > 0 ? unallocatedFunds : 1000;
+      setTotalToSplit(initialAmount.toString());
 
-  const total = parseFloat(totalToSplit) || 0;
-  const totalPercentage = getTotalPercentage(pockets);
-
-  // Calculate allocations based on selected strategy
-  useEffect(() => {
-    if (total <= 0 || pockets.length === 0) {
-      setAllocations({});
-      return;
-    }
-
-    if (strategy === 'percentage') {
-      // Primary Mode: Each item takes its percentage from 100%
-      const newAlloc = {};
-      let assignedSum = 0;
-      
-      // If percentages don't add to 100, calculate proportionally based on relative weights
-      const sumPct = totalPercentage > 0 ? totalPercentage : 100;
-
-      pockets.forEach((p, idx) => {
-        const pct = Number(p.percentage) || 0;
-        if (idx === pockets.length - 1) {
-          // Last pocket gets the exact rounding remainder
-          const remainder = Math.max(0, Math.round((total - assignedSum) * 100) / 100);
-          newAlloc[p.id] = remainder;
-        } else {
-          const cut = Math.round(((pct / sumPct) * total) * 100) / 100;
-          newAlloc[p.id] = cut;
-          assignedSum += cut;
-        }
-      });
-      setAllocations(newAlloc);
-
-    } else if (strategy === 'targets') {
-      // Fill deficits towards target budget
-      let shortfalls = {};
-      let totalShortfall = 0;
+      // Populate local percentages from pockets
+      const initialPcts = {};
+      let totalExisting = 0;
       pockets.forEach(p => {
-        const deficit = Math.max(0, p.target - p.balance);
-        shortfalls[p.id] = deficit;
-        totalShortfall += deficit;
+        const val = typeof p.percentage === 'number' ? p.percentage : 0;
+        initialPcts[p.id] = val;
+        totalExisting += val;
       });
 
-      const newAlloc = {};
-      if (totalShortfall > 0 && total <= totalShortfall) {
-        let assignedSoFar = 0;
+      // If existing percentages don't add to 100, normalize or distribute evenly
+      if (totalExisting === 0 && pockets.length > 0) {
+        const even = Math.floor(100 / pockets.length);
         pockets.forEach((p, idx) => {
-          if (idx === pockets.length - 1) {
-            newAlloc[p.id] = Math.max(0, Math.round((total - assignedSoFar) * 100) / 100);
-          } else {
-            const share = Math.round((shortfalls[p.id] / totalShortfall) * total * 100) / 100;
-            newAlloc[p.id] = share;
-            assignedSoFar += share;
-          }
-        });
-      } else if (totalShortfall > 0 && total > totalShortfall) {
-        const excess = total - totalShortfall;
-        const excessPerPocket = Math.round((excess / pockets.length) * 100) / 100;
-        pockets.forEach(p => {
-          newAlloc[p.id] = Math.round((shortfalls[p.id] + excessPerPocket) * 100) / 100;
-        });
-      } else {
-        const perPocket = Math.round((total / pockets.length) * 100) / 100;
-        pockets.forEach(p => {
-          newAlloc[p.id] = perPocket;
+          initialPcts[p.id] = idx === pockets.length - 1 ? 100 - (even * (pockets.length - 1)) : even;
         });
       }
-      setAllocations(newAlloc);
 
-    } else if (strategy === 'even') {
-      const perPocket = Math.round((total / pockets.length) * 100) / 100;
-      const newAlloc = {};
-      let assigned = 0;
-      pockets.forEach((p, idx) => {
-        if (idx === pockets.length - 1) {
-          newAlloc[p.id] = Math.max(0, Math.round((total - assigned) * 100) / 100);
-        } else {
-          newAlloc[p.id] = perPocket;
-          assigned += perPocket;
-        }
-      });
-      setAllocations(newAlloc);
+      setSliderPercentages(initialPcts);
     }
-  }, [totalToSplit, strategy, pockets, totalPercentage]);
+  }, [isOpen, pockets, unallocatedFunds]);
 
   if (!isOpen) return null;
 
-  const currentTotalAssigned = Object.values(allocations).reduce((sum, v) => sum + (Number(v) || 0), 0);
-  const remainingToAssign = Math.max(0, Math.round((total - currentTotalAssigned) * 100) / 100);
+  const total = parseFloat(totalToSplit) || 0;
 
-  const handleCustomChange = (id, val) => {
-    setStrategy('custom');
-    const num = Math.max(0, parseFloat(val) || 0);
-    setAllocations(prev => ({
+  // Calculate sum of slider percentages
+  const totalPercentage = Object.values(sliderPercentages).reduce((sum, v) => sum + (Number(v) || 0), 0);
+  const isExactly100 = totalPercentage === 100;
+  const remainingPct = 100 - totalPercentage;
+
+  // Calculate dollar cut for each pocket based on its slider percentage
+  const allocations = {};
+  let assignedDollarSum = 0;
+  pockets.forEach((p, idx) => {
+    const pct = Number(sliderPercentages[p.id]) || 0;
+    if (idx === pockets.length - 1 && isExactly100) {
+      // Last pocket gets the exact cent remainder to guarantee 100% exact dollar distribution
+      allocations[p.id] = Math.max(0, Math.round((total - assignedDollarSum) * 100) / 100);
+    } else {
+      const cut = Math.round((total * (pct / 100)) * 100) / 100;
+      allocations[p.id] = cut;
+      assignedDollarSum += cut;
+    }
+  });
+
+  const totalAllocatedDollars = Object.values(allocations).reduce((sum, v) => sum + (Number(v) || 0), 0);
+
+  // --- Slider Handlers ---
+  const handleSliderChange = (pocketId, newPctVal) => {
+    const val = Math.max(0, Math.min(100, parseInt(newPctVal, 10) || 0));
+    setSliderPercentages(prev => ({
       ...prev,
-      [id]: num
+      [pocketId]: val
     }));
   };
 
-  const handleApply = (e) => {
+  // Quick preset shortcuts to set sliders instantly
+  const handleSetEvenSplit = () => {
+    sounds.playTap();
+    triggerHaptic('light');
+    if (pockets.length === 0) return;
+    const even = Math.floor(100 / pockets.length);
+    const newPcts = {};
+    pockets.forEach((p, idx) => {
+      newPcts[p.id] = idx === pockets.length - 1 ? 100 - (even * (pockets.length - 1)) : even;
+    });
+    setSliderPercentages(newPcts);
+  };
+
+  const handleSet503020 = () => {
+    sounds.playTap();
+    triggerHaptic('light');
+    const needs = pockets.filter(p => p.category === 'Needs');
+    const wants = pockets.filter(p => p.category === 'Wants');
+    const savings = pockets.filter(p => p.category === 'Savings' || (!['Needs', 'Wants'].includes(p.category)));
+
+    const newPcts = {};
+    const assignCategory = (arr, totalPct) => {
+      if (!arr.length) return;
+      const share = Math.floor(totalPct / arr.length);
+      arr.forEach((p, i) => {
+        newPcts[p.id] = i === arr.length - 1 ? totalPct - (share * (arr.length - 1)) : share;
+      });
+    };
+
+    assignCategory(needs.length ? needs : pockets, 50);
+    assignCategory(wants.length ? wants : pockets, 30);
+    assignCategory(savings.length ? savings : pockets, 20);
+
+    setSliderPercentages(newPcts);
+  };
+
+  const handleAutoBalance100 = () => {
+    sounds.playTap();
+    triggerHaptic('medium');
+    if (totalPercentage <= 0) {
+      handleSetEvenSplit();
+      return;
+    }
+    // Scale each pocket proportionally so sum equals exactly 100
+    let running = 0;
+    const newPcts = {};
+    pockets.forEach((p, idx) => {
+      if (idx === pockets.length - 1) {
+        newPcts[p.id] = Math.max(0, 100 - running);
+      } else {
+        const cur = Number(sliderPercentages[p.id]) || 0;
+        const scaled = Math.round((cur / totalPercentage) * 100);
+        newPcts[p.id] = scaled;
+        running += scaled;
+      }
+    });
+    setSliderPercentages(newPcts);
+  };
+
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (total <= 0) return;
 
@@ -131,8 +158,8 @@ export default function SplitMoneyModal({
     triggerHaptic('success');
     try {
       confetti({
-        particleCount: 55,
-        spread: 60,
+        particleCount: 60,
+        spread: 65,
         origin: { y: 0.75 },
         colors: ['#10b981', '#06b6d4', '#6366f1', '#fbbf24']
       });
@@ -143,7 +170,8 @@ export default function SplitMoneyModal({
     onConfirmSplit({
       totalSplit: total,
       allocations,
-      leftover: remainingToAssign
+      leftover: Math.max(0, Math.round((total - totalAllocatedDollars) * 100) / 100),
+      updatedPercentages: saveAsDefault ? sliderPercentages : null
     });
 
     onClose();
@@ -155,34 +183,36 @@ export default function SplitMoneyModal({
         className="modal-container split-modal-container animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Modal Header */}
         <div className="modal-header">
           <div className="modal-header-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
-            <Sparkles size={20} />
+            <Sliders size={20} />
           </div>
           <div>
-            <h2 className="modal-title">Insert Money & Split</h2>
-            <p className="modal-subtitle">Money is split automatically into pockets by percentage</p>
+            <h2 className="modal-title">Distribute Money</h2>
+            <p className="modal-subtitle">Adjust sliders to set your 100% split breakdown</p>
           </div>
           <button className="modal-close-btn" onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>
 
-        <form onSubmit={handleApply} className="modal-form">
-          {/* Amount to Insert & Split */}
+        <form onSubmit={handleSubmit} className="modal-form">
+          {/* Top Money Input Section */}
           <div className="form-group">
             <div className="split-amount-header">
-              <label className="form-label">Money to Insert</label>
+              <label className="form-label">Total Money to Distribute</label>
               {unallocatedFunds > 0 && (
                 <button
                   type="button"
                   className="link-helper-btn"
                   onClick={() => setTotalToSplit(unallocatedFunds.toString())}
                 >
-                  Use Unallocated ({formatMoney(unallocatedFunds, currency)})
+                  Use Ready Funds ({formatMoney(unallocatedFunds, currency)})
                 </button>
               )}
             </div>
+
             <div className="amount-input-box">
               <span className="currency-prefix">{currency}</span>
               <input
@@ -198,9 +228,9 @@ export default function SplitMoneyModal({
               />
             </div>
 
-            {/* Quick chips to insert */}
+            {/* Quick preset chips */}
             <div className="quick-chips-row">
-              {[500, 1000, 1500, 2500, 3000].map(val => (
+              {[250, 500, 1000, 2000, 3000].map(val => (
                 <button
                   type="button"
                   key={val}
@@ -213,89 +243,153 @@ export default function SplitMoneyModal({
             </div>
           </div>
 
-          {/* Strategy Selector Chips */}
-          <div className="form-group">
-            <label className="form-label">Split Method</label>
-            <div className="strategy-grid">
-              <button
-                type="button"
-                className={`strategy-card ${strategy === 'percentage' ? 'active' : ''}`}
-                onClick={() => { sounds.playTap(); setStrategy('percentage'); }}
-              >
-                <Percent size={18} />
-                <span className="strat-title">100% Rules</span>
-                <span className="strat-desc">Takes each item's % cut</span>
-              </button>
+          {/* 100% Split Status Tracker Card */}
+          <div className="split-summary-bar-card glass-panel">
+            <div className="summary-bar-top">
+              <div className="summary-bar-label-group">
+                <Percent size={14} color="#10b981" />
+                <span className="summary-bar-label">Total Allocated:</span>
+                <strong className={`num-mono ${isExactly100 ? 'text-emerald' : totalPercentage > 100 ? 'text-danger' : 'text-amber'}`}>
+                  {totalPercentage}% of 100%
+                </strong>
+              </div>
 
-              <button
-                type="button"
-                className={`strategy-card ${strategy === 'targets' ? 'active' : ''}`}
-                onClick={() => { sounds.playTap(); setStrategy('targets'); }}
-              >
-                <ShieldCheck size={18} />
-                <span className="strat-title">Target Fill</span>
-                <span className="strat-desc">Fills budget shortfalls</span>
-              </button>
+              {!isExactly100 && (
+                <button
+                  type="button"
+                  className="auto-balance-pill-btn"
+                  onClick={handleAutoBalance100}
+                  title="Scale percentages so they sum to 100%"
+                >
+                  <Scale size={12} />
+                  <span>Auto-Balance</span>
+                </button>
+              )}
+            </div>
 
-              <button
-                type="button"
-                className={`strategy-card ${strategy === 'even' ? 'active' : ''}`}
-                onClick={() => { sounds.playTap(); setStrategy('even'); }}
-              >
-                <RefreshCw size={18} />
-                <span className="strat-title">Even Split</span>
-                <span className="strat-desc">Equal share each</span>
-              </button>
+            {/* Multi-segment visual bar */}
+            <div className="modal-multi-segment-track">
+              {pockets.map(p => {
+                const colorDef = POCKET_COLORS.find(c => c.id === p.color) || POCKET_COLORS[0];
+                const pct = Number(sliderPercentages[p.id]) || 0;
+                if (pct <= 0) return null;
+                return (
+                  <div
+                    key={p.id}
+                    className="modal-segment-fill"
+                    style={{
+                      width: `${pct}%`,
+                      background: colorDef.bg
+                    }}
+                    title={`${p.name}: ${pct}%`}
+                  />
+                );
+              })}
+            </div>
 
-              <button
-                type="button"
-                className={`strategy-card ${strategy === 'custom' ? 'active' : ''}`}
-                onClick={() => { sounds.playTap(); setStrategy('custom'); }}
-              >
-                <Sliders size={18} />
-                <span className="strat-title">Custom</span>
-                <span className="strat-desc">Edit exact dollar cuts</span>
-              </button>
+            {/* Status Warning & Quick Layout Presets */}
+            <div className="summary-bar-bottom">
+              {!isExactly100 ? (
+                <span className={`pct-status-note ${totalPercentage > 100 ? 'text-danger' : 'text-amber'}`}>
+                  {totalPercentage > 100 
+                    ? `⚠️ ${totalPercentage - 100}% over 100%! Tap Auto-Balance.` 
+                    : `ℹ️ ${remainingPct}% unassigned. Tap Auto-Balance to fill.`}
+                </span>
+              ) : (
+                <span className="pct-status-note text-emerald">
+                  ✓ 100% balanced across {pockets.length} tiny wallets
+                </span>
+              )}
+
+              {/* Quick Strategy Presets */}
+              <div className="quick-presets-group">
+                <button type="button" className="preset-tiny-btn" onClick={handleSetEvenSplit}>
+                  Even Split
+                </button>
+                <button type="button" className="preset-tiny-btn" onClick={handleSet503020}>
+                  50/30/20
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Per-Pocket Allocation Breakdown Table */}
+          {/* Sliders for Each Pocket */}
           <div className="form-group">
             <div className="split-list-header">
-              <label className="form-label">
-                {strategy === 'percentage' ? 'Percentage Distribution Breakdown' : 'Pockets Breakdown'}
-              </label>
+              <label className="form-label">Set Pocket Percentages (Sliders)</label>
               <span className="remaining-counter num-mono text-emerald">
-                {formatMoney(currentTotalAssigned, currency)} / {formatMoney(total, currency)}
+                Total Cut: {formatMoney(totalAllocatedDollars, currency)}
               </span>
             </div>
 
-            <div className="split-pockets-scroll">
+            <div className="pocket-sliders-scroll-list">
               {pockets.map(p => {
                 const colorDef = POCKET_COLORS.find(c => c.id === p.color) || POCKET_COLORS[0];
-                const assigned = allocations[p.id] || 0;
-                const newBalance = (Number(p.balance) || 0) + assigned;
-                const pct = Number(p.percentage) || 0;
+                const pct = Number(sliderPercentages[p.id]) || 0;
+                const cut = allocations[p.id] || 0;
+                const newBalance = (Number(p.balance) || 0) + cut;
 
                 return (
-                  <div key={p.id} className="split-pocket-item" style={{ borderLeft: `3px solid ${colorDef.text}` }}>
-                    <div className="split-pocket-info">
-                      <span className="split-emoji">{p.emoji}</span>
-                      <div className="split-name-col">
-                        <div className="split-name-row">
-                          <span className="split-name">{p.name}</span>
-                          <span className="split-pct-badge">{pct}% of 100%</span>
+                  <div key={p.id} className="pocket-slider-card glass-panel" style={{ '--card-accent': colorDef.text }}>
+                    {/* Top Row: Identity, Cut, and Percentage Input */}
+                    <div className="slider-card-top">
+                      <div className="slider-pocket-identity">
+                        <span className="slider-emoji">{p.emoji}</span>
+                        <div className="slider-title-col">
+                          <span className="slider-pocket-name">{p.name}</span>
+                          <span className="slider-balance-preview">
+                            {formatMoney(p.balance, currency)} ➔ <strong className="text-emerald">{formatMoney(newBalance, currency)}</strong>
+                          </span>
                         </div>
-                        <span className="split-deficit-sub">
-                          Current: {formatMoney(p.balance, currency)} ➔ <strong className="text-emerald">New: {formatMoney(newBalance, currency)}</strong>
+                      </div>
+
+                      {/* Right: Calculated Dollar Amount & % Input */}
+                      <div className="slider-right-metrics">
+                        <span className="slider-dollar-cut num-mono text-emerald">
+                          +{formatMoney(cut, currency)}
                         </span>
+                        <div className="slider-pct-input-box">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            className="slider-pct-num-input num-mono"
+                            value={pct}
+                            onChange={(e) => handleSliderChange(p.id, e.target.value)}
+                          />
+                          <span className="slider-pct-sym">%</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="split-cut-display">
-                      <span className="split-cut-amount num-mono text-emerald">
-                        +{formatMoney(assigned, currency)}
-                      </span>
+                    {/* Interactive Slider */}
+                    <div className="slider-control-row">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        className="modal-pocket-range-slider"
+                        value={pct}
+                        style={{
+                          background: `linear-gradient(to right, ${colorDef.text} 0%, ${colorDef.text} ${pct}%, rgba(255,255,255,0.08) ${pct}%, rgba(255,255,255,0.08) 100%)`
+                        }}
+                        onChange={(e) => handleSliderChange(p.id, e.target.value)}
+                      />
+                    </div>
+
+                    {/* Quick percentage tap buttons */}
+                    <div className="slider-quick-chips">
+                      {[0, 10, 15, 20, 25, 35, 50].map(v => (
+                        <button
+                          type="button"
+                          key={v}
+                          className={`slider-chip-btn ${pct === v ? 'active' : ''}`}
+                          onClick={() => { sounds.playTap(); handleSliderChange(p.id, v); }}
+                        >
+                          {v}%
+                        </button>
+                      ))}
                     </div>
                   </div>
                 );
@@ -303,14 +397,27 @@ export default function SplitMoneyModal({
             </div>
           </div>
 
-          {/* Submit Action */}
+          {/* Remember Preferences Checkbox */}
+          <label className="save-defaults-checkbox-row">
+            <input
+              type="checkbox"
+              checked={saveAsDefault}
+              onChange={(e) => setSaveAsDefault(e.target.checked)}
+              className="checkbox-input"
+            />
+            <span className="checkbox-text">
+              Save these slider percentages as default for future distributions
+            </span>
+          </label>
+
+          {/* Submit Button */}
           <button 
             type="submit" 
             className="submit-btn btn-emerald-action"
             disabled={total <= 0}
           >
             <Check size={18} />
-            <span>Confirm & Split {formatMoney(total, currency)}</span>
+            <span>Confirm & Distribute {formatMoney(total, currency)}</span>
           </button>
         </form>
       </div>

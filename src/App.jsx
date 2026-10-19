@@ -169,11 +169,15 @@ export default function App() {
   };
 
   // 2. Split Money Allocation
-  const handleConfirmSplit = ({ totalSplit, allocations, leftover }) => {
+  const handleConfirmSplit = ({ totalSplit, allocations, leftover, updatedPercentages }) => {
     setPockets(prev => prev.map(p => {
       const added = allocations[p.id] || 0;
+      const newPct = (updatedPercentages && typeof updatedPercentages[p.id] === 'number')
+        ? updatedPercentages[p.id]
+        : p.percentage;
       return {
         ...p,
+        percentage: newPct,
         balance: Math.round((p.balance + added) * 100) / 100
       };
     }));
