@@ -10,6 +10,7 @@ import {
   ArrowRightLeft, 
   DollarSign, 
   SlidersHorizontal,
+  Sliders,
   Smartphone,
   Maximize2,
   Calendar,
