@@ -410,10 +410,10 @@ export default function App() {
               <button 
                 className="header-btn-quick-split"
                 onClick={() => { sounds.playTap(); triggerHaptic('light'); setIsSplitOpen(true); }}
-                title="Split money across pockets"
+                title="Distribute money across pockets"
               >
-                <Sparkles size={16} />
-                <span>Split Money</span>
+                <Sliders size={15} />
+                <span>Distribute</span>
               </button>
 
               <button 
@@ -427,7 +427,7 @@ export default function App() {
                 title="Create a new pocket"
                 aria-label="Add Pocket"
               >
-                <Plus size={20} />
+                <Plus size={18} />
               </button>
             </div>
           </div>
@@ -449,8 +449,8 @@ export default function App() {
             {/* Unallocated / Ready to Assign Banner */}
             <div className="unallocated-strip">
               <div className="unallocated-left">
-                <span className="unallocated-label">✨ Ready to Assign:</span>
-                <strong className="unallocated-amount num-mono text-cyan">
+                <span className="unallocated-label">Ready to Assign:</span>
+                <strong className="unallocated-amount num-mono text-cool">
                   {formatMoney(unallocatedFunds, currency)}
                 </strong>
               </div>
@@ -458,18 +458,18 @@ export default function App() {
                 <button 
                   className="unallocated-action-btn"
                   onClick={() => setIsIncomeModalOpen(true)}
-                  title="Add fresh income/paycheck"
+                  title="Add fresh funds"
                 >
-                  <Plus size={14} />
-                  <span>Add Funds</span>
+                  <Plus size={13} />
+                  <span>Add</span>
                 </button>
                 <button 
                   className="unallocated-action-btn btn-split-accent"
                   onClick={() => setIsSplitOpen(true)}
                   title="Distribute ready money into pockets"
                 >
-                  <Sparkles size={14} />
-                  <span>Distribute</span>
+                  <Sliders size={13} />
+                  <span>Split</span>
                 </button>
               </div>
             </div>
@@ -586,7 +586,7 @@ export default function App() {
         {/* Global Floating Quick Spend FAB on mobile */}
         {activeTab === 'pockets' && (
           <button 
-            className="floating-spend-fab animate-pulse-glow"
+            className="floating-spend-fab"
             onClick={() => {
               sounds.playTap();
               triggerHaptic('light');
@@ -596,7 +596,7 @@ export default function App() {
             title="Log quick spending reduction"
             aria-label="Quick Spend"
           >
-            <Minus size={22} />
+            <Minus size={18} />
             <span>Spend</span>
           </button>
         )}

@@ -1,12 +1,12 @@
 export const POCKET_COLORS = [
-  { id: 'emerald', name: 'Emerald Mint', bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', text: '#34d399', glow: 'rgba(16, 185, 129, 0.35)', border: 'rgba(16, 185, 129, 0.4)' },
-  { id: 'indigo', name: 'Royal Indigo', bg: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)', text: '#818cf8', glow: 'rgba(99, 102, 241, 0.35)', border: 'rgba(99, 102, 241, 0.4)' },
-  { id: 'amber', name: 'Sunset Amber', bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', text: '#fbbf24', glow: 'rgba(245, 158, 11, 0.35)', border: 'rgba(245, 158, 11, 0.4)' },
-  { id: 'cyan', name: 'Cyber Cyan', bg: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)', text: '#22d3ee', glow: 'rgba(6, 182, 212, 0.35)', border: 'rgba(6, 182, 212, 0.4)' },
-  { id: 'rose', name: 'Neon Rose', bg: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)', text: '#fb7185', glow: 'rgba(244, 63, 94, 0.35)', border: 'rgba(244, 63, 94, 0.4)' },
-  { id: 'purple', name: 'Mystic Violet', bg: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)', text: '#c084fc', glow: 'rgba(168, 85, 247, 0.35)', border: 'rgba(168, 85, 247, 0.4)' },
-  { id: 'blue', name: 'Ocean Blue', bg: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', text: '#60a5fa', glow: 'rgba(59, 130, 246, 0.35)', border: 'rgba(59, 130, 246, 0.4)' },
-  { id: 'coral', name: 'Warm Coral', bg: 'linear-gradient(135deg, #fb923c 0%, #ea580c 100%)', text: '#fdba74', glow: 'rgba(251, 146, 60, 0.35)', border: 'rgba(251, 146, 60, 0.4)' },
+  { id: 'emerald', name: 'Sage Green', bg: '#10b981', text: '#34d399', glow: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.25)' },
+  { id: 'cyan', name: 'Ice Teal', bg: '#06b6d4', text: '#22d3ee', glow: 'rgba(6, 182, 212, 0.12)', border: 'rgba(6, 182, 212, 0.25)' },
+  { id: 'blue', name: 'Nordic Slate', bg: '#3b82f6', text: '#60a5fa', glow: 'rgba(59, 130, 246, 0.12)', border: 'rgba(59, 130, 246, 0.25)' },
+  { id: 'indigo', name: 'Dusk Indigo', bg: '#6366f1', text: '#818cf8', glow: 'rgba(99, 102, 241, 0.12)', border: 'rgba(99, 102, 241, 0.25)' },
+  { id: 'amber', name: 'Warm Ochre', bg: '#f59e0b', text: '#fbbf24', glow: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.25)' },
+  { id: 'rose', name: 'Muted Rose', bg: '#f43f5e', text: '#fb7185', glow: 'rgba(244, 63, 94, 0.12)', border: 'rgba(244, 63, 94, 0.25)' },
+  { id: 'purple', name: 'Muted Iris', bg: '#a855f7', text: '#c084fc', glow: 'rgba(168, 85, 247, 0.12)', border: 'rgba(168, 85, 247, 0.25)' },
+  { id: 'slate', name: 'Titanium', bg: '#64748b', text: '#94a3b8', glow: 'rgba(100, 116, 139, 0.12)', border: 'rgba(100, 116, 139, 0.25)' },
 ];
 
 export const INITIAL_POCKETS = [
