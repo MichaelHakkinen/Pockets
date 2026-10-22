@@ -1,107 +1,68 @@
-import { useEffect, useRef, useState } from 'react';
-import { LogOut } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { LogOut, LogIn } from 'lucide-react';
+import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth';
+import { auth } from '../firebase';
 import { sounds, triggerHaptic } from '../utils/audio';
 
-// Client IDs are public. Set VITE_GOOGLE_CLIENT_ID in .env.local for dev, and as a
-// repository variable for the GitHub Pages build (see .github/workflows/deploy.yml).
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-const PROFILE_KEY = 'pockets_google_profile';
-const GSI_SRC = 'https://accounts.google.com/gsi/client';
-
-function readProfile() {
-  try {
-    const p = JSON.parse(localStorage.getItem(PROFILE_KEY));
-    return p && typeof p.name === 'string' ? p : null;
-  } catch {
-    return null;
-  }
-}
-
-// Decodes the (unverified) ID token Google hands back. Only used to show who is
-// signed in; nothing here grants access to data, and the token itself is not stored.
-function parseJwt(token) {
-  const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-  const json = decodeURIComponent(
-    atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
-  );
-  return JSON.parse(json);
-}
-
-function loadGsi() {
-  if (window.google?.accounts?.id) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    let script = document.querySelector(`script[src="${GSI_SRC}"]`);
-    if (!script) {
-      script = document.createElement('script');
-      script.src = GSI_SRC;
-      script.async = true;
-      document.head.appendChild(script);
-    }
-    script.addEventListener('load', resolve, { once: true });
-    script.addEventListener('error', reject, { once: true });
-  });
-}
-
 export default function GoogleAccountCard() {
-  const [profile, setProfile] = useState(readProfile);
-  const [unavailable, setUnavailable] = useState(false);
-  const buttonRef = useRef(null);
+  // undefined = still restoring the session, null = signed out
+  const [user, setUser] = useState(undefined);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (!CLIENT_ID || profile) return;
-    let cancelled = false;
+  // Fires on launch (restores a persisted session) and on every sign-in/out
+  useEffect(() => onAuthStateChanged(auth, setUser), []);
 
-    loadGsi()
-      .then(() => {
-        if (cancelled || !buttonRef.current) return;
-        window.google.accounts.id.initialize({
-          client_id: CLIENT_ID,
-          callback: (response) => {
-            try {
-              const { name, email, picture } = parseJwt(response.credential);
-              const next = { name: name || email, email, picture };
-              localStorage.setItem(PROFILE_KEY, JSON.stringify(next));
-              setProfile(next);
-              sounds.playSuccess();
-              triggerHaptic('success');
-            } catch (e) {
-              console.error('Google sign-in failed:', e);
-            }
-          }
-        });
-        window.google.accounts.id.renderButton(buttonRef.current, {
-          theme: 'outline',
-          size: 'large',
-          text: 'signin_with',
-          shape: 'rectangular'
-        });
-      })
-      // Offline or blocked: tell the user instead of showing an empty box
-      .catch(() => { if (!cancelled) setUnavailable(true); });
-
-    return () => { cancelled = true; };
-  }, [profile]);
-
-  const handleSignOut = () => {
+  const handleSignIn = async () => {
     sounds.playTap();
     triggerHaptic('light');
-    try { localStorage.removeItem(PROFILE_KEY); } catch { /* ignore */ }
-    window.google?.accounts?.id?.disableAutoSelect();
-    setProfile(null);
+    setError('');
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      sounds.playSuccess();
+      triggerHaptic('success');
+    } catch (popupError) {
+      let e = popupError;
+      // Installed PWAs / some mobile browsers block popups: use a full-page redirect instead.
+      // onAuthStateChanged picks the session up when the page comes back.
+      if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') {
+        try {
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectError) {
+          e = redirectError;
+        }
+      }
+      if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+      console.error('Google sign-in failed:', e);
+      setError(
+        e.code === 'auth/network-request-failed'
+          ? 'Google sign-in needs an internet connection.'
+          : 'Sign-in failed. Please try again.'
+      );
+    }
   };
 
-  if (!CLIENT_ID) return null;
+  const handleSignOut = async () => {
+    sounds.playTap();
+    triggerHaptic('light');
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.error('Sign-out failed:', e);
+    }
+  };
 
   return (
     <div className="settings-section glass-panel">
       <h4 className="settings-heading">Google Account</h4>
 
-      {profile ? (
+      {user ? (
         <div className="settings-curr-banner">
           <div className="curr-banner-left">
-            {profile.picture && (
+            {user.photoURL && (
               <img
-                src={profile.picture}
+                src={user.photoURL}
                 alt=""
                 width={44}
                 height={44}
@@ -110,8 +71,8 @@ export default function GoogleAccountCard() {
               />
             )}
             <div>
-              <div className="curr-banner-title"><strong>{profile.name}</strong></div>
-              <div className="curr-banner-sample">{profile.email}</div>
+              <div className="curr-banner-title"><strong>{user.displayName || user.email}</strong></div>
+              <div className="curr-banner-sample">{user.email}</div>
             </div>
           </div>
           <button className="btn-open-all-currencies" onClick={handleSignOut}>
@@ -119,11 +80,13 @@ export default function GoogleAccountCard() {
             <span>Sign Out</span>
           </button>
         </div>
-      ) : unavailable ? (
-        <p className="toggle-sub">Google sign-in needs an internet connection.</p>
-      ) : (
-        <div ref={buttonRef} />
-      )}
+      ) : user === null ? (
+        <button className="btn-open-all-currencies" onClick={handleSignIn}>
+          <LogIn size={14} />
+          <span>Sign in with Google</span>
+        </button>
+      ) : null}
+      {error && <p className="toggle-sub" style={{ marginTop: 8 }}>{error}</p>}
       <p className="toggle-sub" style={{ marginTop: 8 }}>
         Your pockets stay on this device. Signing in only shows your name here.
       </p>

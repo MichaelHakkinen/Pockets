@@ -70,7 +70,7 @@ export default function SettingsView({
 
   return (
     <div className="settings-view animate-fade-in">
-      {/* 0. Google account (hidden until a client ID is configured) */}
+      {/* 0. Google account (Firebase Auth) */}
       <GoogleAccountCard />
 
       {/* 1. Currency & Units Selector */}
