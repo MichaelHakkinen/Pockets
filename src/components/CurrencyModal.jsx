@@ -10,6 +10,7 @@ import {
 import { POPULAR_CURRENCIES, getCurrencyConfig } from '../utils/currencies';
 import { formatMoney } from '../utils/storage';
 import { sounds, triggerHaptic } from '../utils/audio';
+import { useModalFocus } from '../hooks/useModalFocus';
 
 export default function CurrencyModal({
   isOpen,
@@ -20,6 +21,8 @@ export default function CurrencyModal({
   const [search, setSearch] = useState('');
   const [customSymbol, setCustomSymbol] = useState('');
   const [showCustom, setShowCustom] = useState(false);
+
+  const { modalRef, isNudging, handleBackdropClick } = useModalFocus(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -54,9 +57,10 @@ export default function CurrencyModal({
   };
 
   return (
-    <div className="modal-backdrop animate-fade-in" onClick={onClose}>
+    <div className="modal-backdrop animate-fade-in" onClick={handleBackdropClick}>
       <div 
-        className="modal-container currency-modal-container animate-slide-up"
+        ref={modalRef}
+        className={`modal-container currency-modal-container animate-slide-up ${isNudging ? 'attention-nudge' : ''}`}
         onClick={e => e.stopPropagation()}
       >
         {/* Modal Header */}

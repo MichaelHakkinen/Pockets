@@ -39,6 +39,7 @@ import TransactionsView from './components/TransactionsView';
 import SettingsView from './components/SettingsView';
 import PWAInstallBanner from './components/PWAInstallBanner';
 import CurrencyModal from './components/CurrencyModal';
+import IncomeModal from './components/IncomeModal';
 import { getCurrencyConfig, formatCompactNumber } from './utils/currencies';
 import appLogo from './assets/logo.svg';
 
@@ -103,6 +104,19 @@ export default function App() {
   // Quick Income Deposit Modal State
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
   const [incomeAmount, setIncomeAmount] = useState('');
+
+  const isAnyModalOpen = isSpendOpen || isSplitOpen || isPocketModalOpen || isTransferOpen || isIncomeModalOpen || isCurrencyModalOpen;
+
+  useEffect(() => {
+    if (isAnyModalOpen) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, [isAnyModalOpen]);
 
   // --- PWA State ---
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -724,67 +738,15 @@ export default function App() {
       />
 
       {/* 5. Add Fresh Income / Paycheck Modal */}
-      {isIncomeModalOpen && (
-        <div className="modal-backdrop animate-fade-in" onClick={() => setIsIncomeModalOpen(false)}>
-          <div 
-            className="modal-container animate-slide-up"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-header">
-              <div className="modal-header-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
-                <DollarSign size={20} />
-              </div>
-              <div>
-                <h2 className="modal-title">Deposit Funds / Paycheck</h2>
-                <p className="modal-subtitle">Add money to your ready-to-assign pool</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleAddIncome} className="modal-form">
-              <div className="form-group">
-                <label className="form-label">Deposit Amount</label>
-                <div className="amount-input-box">
-                  <span className="currency-prefix">{currency}</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="1"
-                    autoFocus
-                    placeholder="1500.00"
-                    className="amount-input num-mono"
-                    value={incomeAmount}
-                    onChange={(e) => setIncomeAmount(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="quick-chips-row">
-                {(() => {
-                  const presets = currConfig.quickDeposit || [500, 1000, 2000, 3000];
-                  return presets.map(val => (
-                    <button
-                      type="button"
-                      key={val}
-                      className="quick-chip-btn"
-                      onClick={() => { sounds.playTap(); setIncomeAmount(val.toString()); }}
-                    >
-                      +{currency}{currConfig.hasSpace ? ' ' : ''}{formatCompactNumber(val)}
-                    </button>
-                  ));
-                })()}
-              </div>
-
-              <button 
-                type="submit" 
-                className="submit-btn btn-emerald-action"
-                disabled={!incomeAmount || parseFloat(incomeAmount) <= 0}
-              >
-                <span>Add to Ready-to-Assign</span>
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      <IncomeModal
+        isOpen={isIncomeModalOpen}
+        onClose={() => setIsIncomeModalOpen(false)}
+        currency={currency}
+        currConfig={currConfig}
+        incomeAmount={incomeAmount}
+        setIncomeAmount={setIncomeAmount}
+        onAddIncome={handleAddIncome}
+      />
 
       {/* 6. Dedicated Currency Modal */}
       <CurrencyModal

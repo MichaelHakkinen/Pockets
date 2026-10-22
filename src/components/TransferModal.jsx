@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, ArrowRightLeft, Check, AlertCircle } from 'lucide-react';
 import { formatMoney } from '../utils/storage';
 import { sounds, triggerHaptic } from '../utils/audio';
+import { useModalFocus } from '../hooks/useModalFocus';
 
 export default function TransferModal({
   isOpen,
@@ -16,6 +17,8 @@ export default function TransferModal({
   const [toId, setToId] = useState('');
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
+
+  const { modalRef, isNudging, handleBackdropClick } = useModalFocus(isOpen, onClose);
 
   useEffect(() => {
     if (initialSourcePocket) {
@@ -79,9 +82,10 @@ export default function TransferModal({
   };
 
   return (
-    <div className="modal-backdrop animate-fade-in" onClick={onClose}>
+    <div className="modal-backdrop animate-fade-in" onClick={handleBackdropClick}>
       <div 
-        className="modal-container animate-slide-up"
+        ref={modalRef}
+        className={`modal-container animate-slide-up ${isNudging ? 'attention-nudge' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">

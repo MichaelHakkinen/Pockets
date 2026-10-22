@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Check, Trash2, Palette, Smile, Plus, Layers } from 'lucide-react';
 import { POCKET_COLORS } from '../utils/storage';
 import { sounds, triggerHaptic } from '../utils/audio';
+import { useModalFocus } from '../hooks/useModalFocus';
 
 const CURATED_EMOJIS = [
   '🛒', '☕', '⚡', '🎬', '🚗', '🛡️', 
@@ -34,6 +35,8 @@ export default function PocketModal({
   const [percentage, setPercentage] = useState('15');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
+
+  const { modalRef, isNudging, handleBackdropClick } = useModalFocus(isOpen, onClose);
 
   // Extract all existing categories from user's pockets
   const allKnownCategories = Array.from(new Set([
@@ -147,9 +150,10 @@ export default function PocketModal({
   };
 
   return (
-    <div className="modal-backdrop animate-fade-in" onClick={onClose}>
+    <div className="modal-backdrop animate-fade-in" onClick={handleBackdropClick}>
       <div 
-        className="modal-container animate-slide-up"
+        ref={modalRef}
+        className={`modal-container animate-slide-up ${isNudging ? 'attention-nudge' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">

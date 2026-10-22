@@ -16,6 +16,7 @@ import confetti from 'canvas-confetti';
 import { formatMoney, POCKET_COLORS } from '../utils/storage';
 import { sounds, triggerHaptic } from '../utils/audio';
 import { getCurrencyConfig, formatCompactNumber } from '../utils/currencies';
+import { useModalFocus } from '../hooks/useModalFocus';
 
 export default function SplitMoneyModal({ 
   isOpen, 
@@ -29,6 +30,8 @@ export default function SplitMoneyModal({
   // Local editable percentages for each pocket: { [pocketId]: number }
   const [sliderPercentages, setSliderPercentages] = useState({});
   const [saveAsDefault, setSaveAsDefault] = useState(true);
+
+  const { modalRef, isNudging, handleBackdropClick } = useModalFocus(isOpen, onClose);
 
   // Initialize slider percentages when modal opens
   useEffect(() => {
@@ -179,9 +182,10 @@ export default function SplitMoneyModal({
   };
 
   return (
-    <div className="modal-backdrop animate-fade-in" onClick={onClose}>
+    <div className="modal-backdrop animate-fade-in" onClick={handleBackdropClick}>
       <div 
-        className="modal-container split-modal-container animate-slide-up"
+        ref={modalRef}
+        className={`modal-container split-modal-container animate-slide-up ${isNudging ? 'attention-nudge' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}

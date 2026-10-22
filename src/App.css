@@ -615,22 +615,39 @@
 }
 
 /* ========================================================
-   MODALS
+   MODALS & POPUPS
    ======================================================== */
+
+body.modal-open {
+  overflow: hidden !important;
+  touch-action: none !important;
+}
+
+/* Completely prevent background interaction while modal is active */
+body.modal-open .app-root > *:not(.modal-backdrop) {
+  pointer-events: none !important;
+  user-select: none !important;
+}
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(7, 10, 19, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  z-index: 999;
+  z-index: 1000;
+  overscroll-behavior: contain;
+  touch-action: none;
+  transition: backdrop-filter 0.2s ease, background-color 0.2s ease;
 }
 
 @media (min-width: 500px) {
   .modal-backdrop {
     align-items: center;
+    padding: 20px;
   }
 }
 
@@ -643,13 +660,31 @@
   border: 1px solid var(--border-medium);
   border-radius: 20px 20px 0 0;
   padding: 20px 18px calc(20px + var(--safe-bottom)) 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  position: relative;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;
 }
 
 @media (min-width: 500px) {
   .modal-container {
     border-radius: 18px;
     padding-bottom: 20px;
+    box-shadow: 0 25px 70px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1);
   }
+}
+
+/* Subtle attention animation when user clicks background to reinforce focus stays on modal */
+@keyframes modalAttentionNudge {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.018); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75), 0 0 0 2px rgba(99, 102, 241, 0.5); }
+  70% { transform: scale(0.995); }
+  100% { transform: scale(1); }
+}
+
+.modal-container.attention-nudge {
+  animation: modalAttentionNudge 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .modal-header {

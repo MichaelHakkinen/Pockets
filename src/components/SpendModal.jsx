@@ -3,6 +3,7 @@ import { X, Minus, AlertCircle, Check, Tag } from 'lucide-react';
 import { formatMoney } from '../utils/storage';
 import { sounds, triggerHaptic } from '../utils/audio';
 import { getCurrencyConfig, formatCompactNumber } from '../utils/currencies';
+import { useModalFocus } from '../hooks/useModalFocus';
 
 export default function SpendModal({ 
   isOpen, 
@@ -16,6 +17,8 @@ export default function SpendModal({
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
+
+  const { modalRef, isNudging, handleBackdropClick } = useModalFocus(isOpen, onClose);
 
   useEffect(() => {
     if (selectedPocket) {
@@ -74,9 +77,10 @@ export default function SpendModal({
   };
 
   return (
-    <div className="modal-backdrop animate-fade-in" onClick={onClose}>
+    <div className="modal-backdrop animate-fade-in" onClick={handleBackdropClick}>
       <div 
-        className="modal-container animate-slide-up"
+        ref={modalRef}
+        className={`modal-container animate-slide-up ${isNudging ? 'attention-nudge' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
