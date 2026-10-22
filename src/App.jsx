@@ -42,6 +42,7 @@ import CurrencyModal from './components/CurrencyModal';
 import GoogleAuthModal from './components/GoogleAuthModal';
 import { loadUserSession, saveUserSession, clearUserSession } from './utils/auth';
 import { getCurrencyConfig, formatCompactNumber } from './utils/currencies';
+import appLogo from './assets/logo.svg';
 
 import './App.css';
 
@@ -427,7 +428,7 @@ export default function App() {
           <div className="brand-row">
             <div className="brand-logo-group">
               <div className="brand-icon-box">
-                <img src="/favicon.svg" alt="Pockets Logo" className="brand-logo-img" />
+                <img src={appLogo} alt="Pockets Logo" className="brand-logo-img" />
               </div>
               <div>
                 <h1 className="brand-app-name">Pockets</h1>
