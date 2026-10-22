@@ -1,10 +1,21 @@
 import { useEffect, useState } from 'react';
-import { LogOut, LogIn } from 'lucide-react';
+import { LogOut, LogIn, Trash2 } from 'lucide-react';
 import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth';
 import { auth } from '../firebase';
+import { deleteCloudData, useSyncStatus } from '../hooks/useCloudSync';
+import { STORAGE_KEY } from '../utils/storage';
 import { sounds, triggerHaptic } from '../utils/audio';
 
+const STATUS_TEXT = {
+  connecting: 'Connecting…',
+  saving: 'Saving…',
+  synced: '✓ Synced',
+  offline: 'Offline — changes sync when you reconnect',
+  error: 'Sync problem — will retry on your next change',
+};
+
 export default function GoogleAccountCard() {
+  const syncStatus = useSyncStatus();
   // undefined = still restoring the session, null = signed out
   const [user, setUser] = useState(undefined);
   const [error, setError] = useState('');
@@ -53,6 +64,24 @@ export default function GoogleAccountCard() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (!window.confirm('Delete ALL your data from your account and this device? This cannot be undone. You will be signed out.')) return;
+    setError('');
+    try {
+      await deleteCloudData();
+      try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+      await signOut(auth);
+      window.location.reload();
+    } catch (e) {
+      console.error('Delete failed:', e);
+      setError(
+        e.message === 'offline'
+          ? 'Connect to the internet to delete your cloud data.'
+          : 'Could not delete your data. Please try again.'
+      );
+    }
+  };
+
   return (
     <div className="settings-section glass-panel">
       <h4 className="settings-heading">Google Account</h4>
@@ -86,7 +115,16 @@ export default function GoogleAccountCard() {
           <span>Sign in with Google</span>
         </button>
       ) : null}
+      {user && STATUS_TEXT[syncStatus] && (
+        <p className="toggle-sub" style={{ marginTop: 8 }}>{STATUS_TEXT[syncStatus]}</p>
+      )}
       {error && <p className="toggle-sub" style={{ marginTop: 8 }}>{error}</p>}
+      {user && (
+        <button className="settings-action-btn btn-danger-outline" style={{ marginTop: 12 }} onClick={handleDeleteAll}>
+          <Trash2 size={14} />
+          <span>Delete all my data</span>
+        </button>
+      )}
       <p className="toggle-sub" style={{ marginTop: 8 }}>
         Signed in: your pockets sync to your account across devices. Signed out: they stay on this device.
       </p>

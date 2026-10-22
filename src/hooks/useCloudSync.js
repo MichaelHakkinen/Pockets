@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { sanitizeState } from '../utils/storage';
 
@@ -21,6 +21,40 @@ function stable(value) {
 }
 
 const canon = (state) => stable(sanitizeState(state));
+
+// --- Sync status, readable from any component via useSyncStatus() ---
+// 'off' (signed out) | 'connecting' | 'saving' | 'synced' | 'error'
+let status = 'off';
+const listeners = new Set();
+function setStatus(next) {
+  if (next === status) return;
+  status = next;
+  listeners.forEach(l => l());
+}
+function subscribe(listener) {
+  listeners.add(listener);
+  window.addEventListener('online', listener);
+  window.addEventListener('offline', listener);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener('online', listener);
+    window.removeEventListener('offline', listener);
+  };
+}
+const getStatus = () => (status !== 'off' && !navigator.onLine ? 'offline' : status);
+
+export function useSyncStatus() {
+  return useSyncExternalStore(subscribe, getStatus);
+}
+
+// Removes the signed-in user's cloud copy. Needs a connection: offline, Firestore would
+// only queue the delete and report success while the data is still in the cloud.
+export async function deleteCloudData() {
+  const user = auth.currentUser;
+  if (!user) return;
+  if (!navigator.onLine) throw new Error('offline');
+  await deleteDoc(doc(db, 'users', user.uid));
+}
 
 // Mirrors the app state to users/{uid} while signed in. The cloud copy wins when
 // signing in on a device; after that, local edits are pushed (debounced) and edits
@@ -44,8 +78,10 @@ export function useCloudSync(state, applyRemote) {
         updatedAt: serverTimestamp(),
       });
       lastSyncedRef.current = current;
+      setStatus('synced');
     } catch (e) {
       console.error('Cloud save failed:', e);
+      setStatus('error');
     }
   }, []);
 
@@ -54,6 +90,7 @@ export function useCloudSync(state, applyRemote) {
     stateRef.current = state;
     applyRef.current = applyRemote;
     if (!userRef.current || !readyRef.current) return;
+    if (canon(state) !== lastSyncedRef.current) setStatus('saving');
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => push(), PUSH_DELAY_MS);
     return () => clearTimeout(timerRef.current);
@@ -70,6 +107,7 @@ export function useCloudSync(state, applyRemote) {
       userRef.current = user;
       readyRef.current = false;
       lastSyncedRef.current = null;
+      setStatus(user ? 'connecting' : 'off');
       if (!user) return;
 
       unsubSnapshot = onSnapshot(
@@ -96,8 +134,12 @@ export function useCloudSync(state, applyRemote) {
           const remoteCanon = stable(remote);
           lastSyncedRef.current = remoteCanon;
           if (remoteCanon !== canon(stateRef.current)) applyRef.current(remote);
+          setStatus('synced');
         },
-        (e) => console.error('Cloud sync failed:', e)
+        (e) => {
+          console.error('Cloud sync failed:', e);
+          setStatus('error');
+        }
       );
     });
 

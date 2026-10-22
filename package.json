@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
+    "ship": "node scripts/ship.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
