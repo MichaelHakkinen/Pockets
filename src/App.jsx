@@ -22,6 +22,7 @@ import {
   formatMoney
 } from './utils/storage';
 import { sounds, haptics, triggerHaptic } from './utils/audio';
+import { useCloudSync } from './hooks/useCloudSync';
 
 import PocketCard from './components/PocketCard';
 import SpendModal from './components/SpendModal';
@@ -97,6 +98,20 @@ export default function App() {
     sounds.enabled = soundEnabled;
     haptics.enabled = hapticsEnabled;
   }, [pockets, unallocatedFunds, transactions, currency, soundEnabled, hapticsEnabled, cycleType]);
+
+  // Sync with Firestore while signed in (cloud copy wins on a fresh sign-in)
+  useCloudSync(
+    { pockets, unallocatedFunds, transactions, currency, soundEnabled, hapticsEnabled, cycleType },
+    (remote) => {
+      if (remote.pockets) setPockets(remote.pockets);
+      if (remote.transactions) setTransactions(remote.transactions);
+      if (remote.unallocatedFunds !== undefined) setUnallocatedFunds(remote.unallocatedFunds);
+      if (remote.currency) setCurrency(remote.currency);
+      if (remote.soundEnabled !== undefined) setSoundEnabled(remote.soundEnabled);
+      if (remote.hapticsEnabled !== undefined) setHapticsEnabled(remote.hapticsEnabled);
+      if (remote.cycleType) setCycleType(remote.cycleType);
+    }
+  );
 
   // PWA beforeinstallprompt and standalone check
   useEffect(() => {

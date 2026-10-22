@@ -88,7 +88,7 @@ export default function GoogleAccountCard() {
       ) : null}
       {error && <p className="toggle-sub" style={{ marginTop: 8 }}>{error}</p>}
       <p className="toggle-sub" style={{ marginTop: 8 }}>
-        Your pockets stay on this device. Signing in only shows your name here.
+        Signed in: your pockets sync to your account across devices. Signed out: they stay on this device.
       </p>
     </div>
   );
