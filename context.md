@@ -170,21 +170,30 @@ To keep bundle size minimal and avoid loading external audio files:
 
 ---
 
-## 8. Development & Build Scripts
+## 8. Development, Build & Deployment Workflow
+
+> [!IMPORTANT]
+> **Mandatory Workflow Rule**: Always **commit and push to Git (`git push`) BEFORE running `npm run build`** (or deploying).
 
 In PowerShell on Windows, invoke scripts using `npm.cmd`:
 
+### Step-by-Step Workflow:
 ```bash
-# Start local development server (default port: 5173)
+# 1. Start local development server (default port: 5173)
 npm.cmd run dev
 
-# Compile production bundle to /dist
+# 2. Stage, commit, and push your changes to GitHub FIRST
+git add .
+git commit -m "Update feature or styles"
+git push
+
+# 3. Compile production bundle to /dist (push before running this)
 npm.cmd run build
 
-# Preview production build locally
+# 4. Preview production build locally
 npm.cmd run preview
 
-# Run Oxlint static code analysis
+# 5. Run Oxlint static code analysis
 npm.cmd run lint
 ```
 
