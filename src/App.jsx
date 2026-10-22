@@ -46,7 +46,7 @@ export default function App() {
   const [saved] = useState(loadSavedState);
 
   const [pockets, setPockets] = useState(saved?.pockets || INITIAL_POCKETS);
-  const [unallocatedFunds, setUnallocatedFunds] = useState(saved?.unallocatedFunds ?? 420.00);
+  const [unallocatedFunds, setUnallocatedFunds] = useState(saved?.unallocatedFunds ?? 0);
   const [transactions, setTransactions] = useState(saved?.transactions || INITIAL_TRANSACTIONS);
   const [currency, setCurrency] = useState(saved?.currency || '$');
   const [soundEnabled, setSoundEnabled] = useState(saved?.soundEnabled ?? true);
@@ -317,7 +317,7 @@ export default function App() {
   // 9. Reset and Export Data
   const handleResetData = () => {
     setPockets(INITIAL_POCKETS);
-    setUnallocatedFunds(420.00);
+    setUnallocatedFunds(0);
     setTransactions(INITIAL_TRANSACTIONS);
     setCurrency('$');
     setCycleType('Monthly');
