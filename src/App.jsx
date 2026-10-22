@@ -709,6 +709,7 @@ export default function App() {
         currency={currency}
         onSavePocket={handleSavePocket}
         onDeletePocket={handleDeletePocket}
+        existingPockets={pockets}
       />
 
       {/* 4. Transfer Between Pockets Modal */}

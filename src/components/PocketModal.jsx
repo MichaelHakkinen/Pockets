@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Trash2, Palette, Smile } from 'lucide-react';
+import { X, Check, Trash2, Palette, Smile, Plus, Layers } from 'lucide-react';
 import { POCKET_COLORS } from '../utils/storage';
 import { sounds, triggerHaptic } from '../utils/audio';
 
 const CURATED_EMOJIS = [
   '🛒', '☕', '⚡', '🎬', '🚗', '🛡️', 
   '🏠', '🍔', '💊', '✈️', '💻', '🎁', 
-  '👗', '📚', '🐾', '🏋️', '💳', '🏝️'
+  '👗', '📚', '🐾', '🏋️', '💳', '🏝️',
+  '🎯', '🚀', '💎', '🎨', '🍕', '🎉'
 ];
+
+const DEFAULT_CATEGORIES = ['Needs', 'Wants', 'Savings', 'Bills / Debt', 'Investments'];
 
 export default function PocketModal({
   isOpen,
@@ -15,22 +18,36 @@ export default function PocketModal({
   pocketToEdit,
   currency,
   onSavePocket,
-  onDeletePocket
+  onDeletePocket,
+  existingPockets = []
 }) {
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState('👛');
+  const [customEmoji, setCustomEmoji] = useState('');
   const [target, setTarget] = useState('300');
   const [balance, setBalance] = useState('300');
   const [category, setCategory] = useState('Needs');
+  const [customCategories, setCustomCategories] = useState([]);
+  const [showCustomCat, setShowCustomCat] = useState(false);
+  const [newCatInput, setNewCatInput] = useState('');
   const [color, setColor] = useState('emerald');
   const [percentage, setPercentage] = useState('15');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
 
+  // Extract all existing categories from user's pockets
+  const allKnownCategories = Array.from(new Set([
+    ...DEFAULT_CATEGORIES,
+    ...existingPockets.map(p => p.category).filter(Boolean),
+    ...customCategories,
+    ...(pocketToEdit?.category ? [pocketToEdit.category] : [])
+  ]));
+
   useEffect(() => {
     if (pocketToEdit) {
       setName(pocketToEdit.name);
       setEmoji(pocketToEdit.emoji || '👛');
+      setCustomEmoji(CURATED_EMOJIS.includes(pocketToEdit.emoji) ? '' : (pocketToEdit.emoji || ''));
       setTarget(pocketToEdit.target.toString());
       setBalance(pocketToEdit.balance.toString());
       setCategory(pocketToEdit.category || 'Needs');
@@ -40,6 +57,7 @@ export default function PocketModal({
     } else {
       setName('');
       setEmoji('👛');
+      setCustomEmoji('');
       setTarget('300');
       setBalance('0');
       setCategory('Needs');
@@ -47,10 +65,47 @@ export default function PocketModal({
       setPercentage('15');
       setNote('');
     }
+    setShowCustomCat(false);
+    setNewCatInput('');
     setError('');
   }, [isOpen, pocketToEdit]);
 
   if (!isOpen) return null;
+
+  const handleSelectCuratedEmoji = (em) => {
+    sounds.playTap();
+    triggerHaptic('light');
+    setEmoji(em);
+    setCustomEmoji('');
+  };
+
+  const handleCustomEmojiChange = (val) => {
+    setCustomEmoji(val);
+    if (val.trim()) {
+      setEmoji(val.trim());
+    }
+  };
+
+  const handleSelectCategory = (cat) => {
+    sounds.playTap();
+    triggerHaptic('light');
+    setCategory(cat);
+    setShowCustomCat(false);
+  };
+
+  const handleAddCustomCategory = (e) => {
+    e.preventDefault();
+    const trimmed = newCatInput.trim();
+    if (!trimmed) return;
+    sounds.playTap();
+    triggerHaptic('success');
+    if (!customCategories.includes(trimmed)) {
+      setCustomCategories(prev => [...prev, trimmed]);
+    }
+    setCategory(trimmed);
+    setNewCatInput('');
+    setShowCustomCat(false);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -73,7 +128,7 @@ export default function PocketModal({
       balance: numBalance,
       percentage: Math.max(0, Math.min(100, numPct)),
       spent: pocketToEdit ? pocketToEdit.spent : 0,
-      category,
+      category: category || 'Needs',
       color,
       note: note.trim()
     });
@@ -83,7 +138,7 @@ export default function PocketModal({
 
   const handleDelete = () => {
     if (!pocketToEdit) return;
-    if (window.confirm(`Are you sure you want to remove "${pocketToEdit.name}"? Any remaining money (${currency}${pocketToEdit.balance.toFixed(2)}) will be safely moved to your unallocated funds.`)) {
+    if (window.confirm(`Are you sure you want to remove "${pocketToEdit.name}"? Any remaining money will be safely moved to your unallocated funds.`)) {
       sounds.playTap();
       triggerHaptic('warning');
       onDeletePocket(pocketToEdit.id);
@@ -124,24 +179,115 @@ export default function PocketModal({
             />
           </div>
 
-          {/* Emoji Selector */}
+          {/* Emoji / Icon Selector */}
           <div className="form-group">
-            <label className="form-label">
-              <Smile size={13} style={{ marginRight: 5, verticalAlign: 'middle' }} />
-              Choose Icon
-            </label>
+            <div className="form-label-row">
+              <label className="form-label">
+                <Smile size={13} style={{ marginRight: 5, verticalAlign: 'middle' }} />
+                Choose Icon
+              </label>
+              <span className="active-item-badge">
+                Selected: <strong className="emoji-display-preview">{emoji}</strong>
+              </span>
+            </div>
+
             <div className="emoji-picker-row">
               {CURATED_EMOJIS.map(em => (
                 <button
                   type="button"
                   key={em}
                   className={`emoji-btn ${emoji === em ? 'active' : ''}`}
-                  onClick={() => { sounds.playTap(); setEmoji(em); }}
+                  onClick={() => handleSelectCuratedEmoji(em)}
                 >
                   {em}
                 </button>
               ))}
             </div>
+
+            {/* Custom Icon / Emoji Input */}
+            <div className="custom-input-with-button">
+              <input
+                type="text"
+                placeholder="Or type/paste your own custom icon (e.g. 🎯, 🚀, 💎)..."
+                className="form-input custom-emoji-input"
+                value={customEmoji}
+                onChange={(e) => handleCustomEmojiChange(e.target.value)}
+              />
+              {customEmoji && (
+                <button
+                  type="button"
+                  className="btn-apply-custom-tag"
+                  onClick={() => {
+                    if (customEmoji.trim()) {
+                      sounds.playTap();
+                      triggerHaptic('light');
+                      setEmoji(customEmoji.trim());
+                    }
+                  }}
+                >
+                  Use This
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Budget Bucket / Category */}
+          <div className="form-group">
+            <div className="form-label-row">
+              <label className="form-label">
+                <Layers size={13} style={{ marginRight: 5, verticalAlign: 'middle' }} />
+                Budget Bucket
+              </label>
+              <span className="active-item-badge">
+                Active: <strong>{category}</strong>
+              </span>
+            </div>
+
+            <div className="category-chips-row">
+              {allKnownCategories.map(cat => (
+                <button
+                  type="button"
+                  key={cat}
+                  className={`cat-chip-btn ${category === cat ? 'active' : ''}`}
+                  onClick={() => handleSelectCategory(cat)}
+                >
+                  {cat}
+                </button>
+              ))}
+              
+              <button
+                type="button"
+                className={`cat-chip-btn cat-chip-add ${showCustomCat ? 'active' : ''}`}
+                onClick={() => {
+                  sounds.playTap();
+                  setShowCustomCat(!showCustomCat);
+                }}
+              >
+                <Plus size={13} style={{ marginRight: 4 }} />
+                <span>Custom Bucket</span>
+              </button>
+            </div>
+
+            {showCustomCat && (
+              <div className="custom-input-with-button animate-fade-in" style={{ marginTop: 8 }}>
+                <input
+                  type="text"
+                  placeholder="Enter custom bucket name (e.g. Vacation, Kids, Tax)..."
+                  className="form-input"
+                  value={newCatInput}
+                  onChange={(e) => setNewCatInput(e.target.value)}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  className="btn-apply-custom-tag"
+                  disabled={!newCatInput.trim()}
+                  onClick={handleAddCustomCategory}
+                >
+                  Add Bucket
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Target and Initial Balance */}
@@ -213,24 +359,7 @@ export default function PocketModal({
             </div>
           </div>
 
-          {/* Category */}
-          <div className="form-group">
-            <label className="form-label">Budget Bucket</label>
-            <div className="category-chips-row">
-              {['Needs', 'Wants', 'Savings', 'Other'].map(cat => (
-                <button
-                  type="button"
-                  key={cat}
-                  className={`cat-chip-btn ${category === cat ? 'active' : ''}`}
-                  onClick={() => { sounds.playTap(); setCategory(cat); }}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Color Gradient Theme */}
+          {/* Color Theme */}
           <div className="form-group">
             <label className="form-label">
               <Palette size={13} style={{ marginRight: 5, verticalAlign: 'middle' }} />
@@ -258,7 +387,7 @@ export default function PocketModal({
             <input
               type="text"
               className="form-input"
-              placeholder="e.g. Set aside $50 each paycheck"
+              placeholder="e.g. Set aside for groceries & supplies"
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
