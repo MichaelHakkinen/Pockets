@@ -15,6 +15,7 @@ import {
 import confetti from 'canvas-confetti';
 import { formatMoney, POCKET_COLORS } from '../utils/storage';
 import { sounds, triggerHaptic } from '../utils/audio';
+import { getCurrencyConfig, formatCompactNumber } from '../utils/currencies';
 
 export default function SplitMoneyModal({ 
   isOpen, 
@@ -230,16 +231,20 @@ export default function SplitMoneyModal({
 
             {/* Quick preset chips */}
             <div className="quick-chips-row">
-              {[250, 500, 1000, 2000, 3000].map(val => (
-                <button
-                  type="button"
-                  key={val}
-                  className="quick-chip-btn"
-                  onClick={() => { sounds.playTap(); setTotalToSplit(val.toString()); }}
-                >
-                  {currency}{val}
-                </button>
-              ))}
+              {(() => {
+                const cfg = getCurrencyConfig(currency);
+                const presets = cfg.quickDeposit || [250, 500, 1000, 2000, 3000];
+                return presets.map(val => (
+                  <button
+                    type="button"
+                    key={val}
+                    className="quick-chip-btn"
+                    onClick={() => { sounds.playTap(); setTotalToSplit(val.toString()); }}
+                  >
+                    {currency}{cfg.hasSpace ? ' ' : ''}{formatCompactNumber(val)}
+                  </button>
+                ));
+              })()}
             </div>
           </div>
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Minus, AlertCircle, Check, Tag } from 'lucide-react';
 import { formatMoney } from '../utils/storage';
 import { sounds, triggerHaptic } from '../utils/audio';
+import { getCurrencyConfig, formatCompactNumber } from '../utils/currencies';
 
 export default function SpendModal({ 
   isOpen, 
@@ -35,7 +36,8 @@ export default function SpendModal({
   const newBalance = currentBalance - numAmount;
   const willOverspend = numAmount > 0 && newBalance < 0;
 
-  const quickAmounts = [5, 10, 20, 50, 100];
+  const currCfg = getCurrencyConfig(currency);
+  const quickAmounts = currCfg.quickSpend || [5, 10, 20, 50, 100];
 
   const handleQuickAddAmount = (val) => {
     sounds.playTap();
@@ -139,7 +141,7 @@ export default function SpendModal({
                   className="quick-chip-btn"
                   onClick={() => handleQuickAddAmount(val)}
                 >
-                  +{currency}{val}
+                  +{currency}{currCfg.hasSpace ? ' ' : ''}{formatCompactNumber(val)}
                 </button>
               ))}
               <button

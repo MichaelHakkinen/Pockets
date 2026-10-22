@@ -1,3 +1,5 @@
+import { getCurrencyConfig } from './currencies';
+
 export const POCKET_COLORS = [
   { id: 'emerald', name: 'Sage Green', bg: '#10b981', text: '#34d399', glow: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.25)' },
   { id: 'cyan', name: 'Ice Teal', bg: '#06b6d4', text: '#22d3ee', glow: 'rgba(6, 182, 212, 0.12)', border: 'rgba(6, 182, 212, 0.25)' },
@@ -162,7 +164,15 @@ export function saveState(state) {
 
 export function formatMoney(amount, currency = '$') {
   const val = Number(amount) || 0;
-  return `${currency}${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const cfg = getCurrencyConfig(currency);
+  const space = cfg.hasSpace ? ' ' : '';
+  const hasCents = Math.abs(val % 1) > 0.001;
+  const digits = cfg.isZeroDecimal ? (hasCents ? 2 : 0) : 2;
+
+  return `${currency}${space}${val.toLocaleString('en-US', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits
+  })}`;
 }
 
 export function getTotalPercentage(pockets) {

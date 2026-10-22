@@ -38,6 +38,10 @@ import AnalyticsView from './components/AnalyticsView';
 import TransactionsView from './components/TransactionsView';
 import SettingsView from './components/SettingsView';
 import PWAInstallBanner from './components/PWAInstallBanner';
+import CurrencyModal from './components/CurrencyModal';
+import GoogleAuthModal from './components/GoogleAuthModal';
+import { loadUserSession, saveUserSession, clearUserSession } from './utils/auth';
+import { getCurrencyConfig, formatCompactNumber } from './utils/currencies';
 
 import './App.css';
 
@@ -83,6 +87,9 @@ export default function App() {
   const [pocketFilter, setPocketFilter] = useState('all'); // 'all' | 'needs' | 'wants' | 'savings' | 'low'
   const [desktopFrameView, setDesktopFrameView] = useState(false); // Mobile mockup frame toggle for desktop
 
+  // --- User Session State (Google Login) ---
+  const [currentUser, setCurrentUser] = useState(() => loadUserSession());
+
   // --- Modals State ---
   const [isSpendOpen, setIsSpendOpen] = useState(false);
   const [spendPocket, setSpendPocket] = useState(null);
@@ -95,6 +102,9 @@ export default function App() {
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [transferSourcePocket, setTransferSourcePocket] = useState(null);
 
+  const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
   // Quick Income Deposit Modal State
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
   const [incomeAmount, setIncomeAmount] = useState('');
@@ -102,6 +112,11 @@ export default function App() {
   // --- PWA State ---
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
+
+  // Persist user session
+  useEffect(() => {
+    saveUserSession(currentUser);
+  }, [currentUser]);
 
   // Persist state changes
   useEffect(() => {
@@ -349,10 +364,23 @@ export default function App() {
     dlAnchor.click();
   };
 
+  // Google Login & Profile Handlers
+  const handleLoginSuccess = (user) => {
+    setCurrentUser(user);
+  };
+
+  const handleSignOut = () => {
+    clearUserSession();
+    setCurrentUser(null);
+  };
+
   // Calculations for top summary
   const totalInPockets = pockets.reduce((sum, p) => sum + (Number(p.balance) || 0), 0);
   const totalTargetBudget = pockets.reduce((sum, p) => sum + (Number(p.target) || 0), 0);
   const totalSpentAll = pockets.reduce((sum, p) => sum + (Number(p.spent) || 0), 0);
+
+  // Currency configuration
+  const currConfig = getCurrencyConfig(currency);
 
   // Filtering pockets
   const filteredPockets = pockets.filter(p => {
@@ -408,12 +436,53 @@ export default function App() {
             </div>
 
             <div className="header-actions">
+              {/* Quick Currency Switcher Pill */}
+              <button 
+                className="header-currency-pill-btn"
+                onClick={() => { sounds.playTap(); triggerHaptic('light'); setIsCurrencyModalOpen(true); }}
+                title={`Currency: ${currency} (${currConfig.name}). Click to switch`}
+              >
+                <span className="pill-flag">{currConfig.flag}</span>
+                <span className="pill-curr-code num-mono">{currency}</span>
+              </button>
+
+              {/* Google Account Profile Button */}
+              {currentUser ? (
+                <button 
+                  className="header-avatar-btn"
+                  onClick={() => { sounds.playTap(); triggerHaptic('light'); setIsAuthModalOpen(true); }}
+                  title={`Google Account: ${currentUser.name}`}
+                >
+                  <img 
+                    src={currentUser.avatar} 
+                    alt={currentUser.name} 
+                    className="header-avatar-img"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                  <span className="avatar-google-dot" />
+                </button>
+              ) : (
+                <button 
+                  className="header-google-signin-btn"
+                  onClick={() => { sounds.playTap(); triggerHaptic('light'); setIsAuthModalOpen(true); }}
+                  title="Sign in with Google"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                  </svg>
+                  <span className="google-btn-text">Sign In</span>
+                </button>
+              )}
+
               <button 
                 className="header-btn-quick-split"
                 onClick={() => { sounds.playTap(); triggerHaptic('light'); setIsSplitOpen(true); }}
                 title="Distribute money across pockets"
               >
-                <Sliders size={15} />
+                <Sliders size={14} />
                 <span>Distribute</span>
               </button>
 
@@ -568,8 +637,12 @@ export default function App() {
 
           {activeTab === 'settings' && (
             <SettingsView
+              currentUser={currentUser}
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              onSignOut={handleSignOut}
               currency={currency}
               onCurrencyChange={setCurrency}
+              onOpenCurrencyModal={() => setIsCurrencyModalOpen(true)}
               soundEnabled={soundEnabled}
               onToggleSound={() => setSoundEnabled(!soundEnabled)}
               hapticsEnabled={hapticsEnabled}
@@ -735,16 +808,19 @@ export default function App() {
               </div>
 
               <div className="quick-chips-row">
-                {[500, 1000, 2000, 3000].map(val => (
-                  <button
-                    type="button"
-                    key={val}
-                    className="quick-chip-btn"
-                    onClick={() => { sounds.playTap(); setIncomeAmount(val.toString()); }}
-                  >
-                    +{currency}{val}
-                  </button>
-                ))}
+                {(() => {
+                  const presets = currConfig.quickDeposit || [500, 1000, 2000, 3000];
+                  return presets.map(val => (
+                    <button
+                      type="button"
+                      key={val}
+                      className="quick-chip-btn"
+                      onClick={() => { sounds.playTap(); setIncomeAmount(val.toString()); }}
+                    >
+                      +{currency}{currConfig.hasSpace ? ' ' : ''}{formatCompactNumber(val)}
+                    </button>
+                  ));
+                })()}
               </div>
 
               <button 
@@ -758,6 +834,23 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* 6. Dedicated Currency Modal */}
+      <CurrencyModal
+        isOpen={isCurrencyModalOpen}
+        onClose={() => setIsCurrencyModalOpen(false)}
+        currentCurrency={currency}
+        onSelectCurrency={setCurrency}
+      />
+
+      {/* 7. Google Account & Auth Modal */}
+      <GoogleAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        currentUser={currentUser}
+        onLoginSuccess={handleLoginSuccess}
+        onSignOut={handleSignOut}
+      />
     </div>
   );
 }
