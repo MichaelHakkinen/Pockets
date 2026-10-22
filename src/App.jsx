@@ -40,7 +40,7 @@ import SettingsView from './components/SettingsView';
 import PWAInstallBanner from './components/PWAInstallBanner';
 import CurrencyModal from './components/CurrencyModal';
 import IncomeModal from './components/IncomeModal';
-import { getCurrencyConfig, formatCompactNumber } from './utils/currencies';
+import { getCurrencyConfig } from './utils/currencies';
 import appLogo from './assets/logo.svg';
 
 import './App.css';
