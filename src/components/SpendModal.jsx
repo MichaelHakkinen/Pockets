@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Minus, AlertCircle, Check, Tag } from 'lucide-react';
 import { formatMoney } from '../utils/storage';
 import { sounds, triggerHaptic } from '../utils/audio';
@@ -13,23 +13,14 @@ export default function SpendModal({
   currency, 
   onConfirmSpend 
 }) {
-  const [pocketId, setPocketId] = useState('');
+  // The parent remounts this modal each time it opens (via `key`), so these
+  // initial values act as the per-open reset.
+  const [pocketId, setPocketId] = useState(selectedPocket?.id ?? pockets[0]?.id ?? '');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
 
   const { modalRef, isNudging, handleBackdropClick } = useModalFocus(isOpen, onClose);
-
-  useEffect(() => {
-    if (selectedPocket) {
-      setPocketId(selectedPocket.id);
-    } else if (pockets.length > 0 && !pocketId) {
-      setPocketId(pockets[0].id);
-    }
-    setAmount('');
-    setNote('');
-    setError('');
-  }, [isOpen, selectedPocket, pockets]);
 
   if (!isOpen) return null;
 

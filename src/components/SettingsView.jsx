@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Download, 
+import React, { useState, useRef } from 'react';
+import {
+  Download,
+  FileUp,
   Smartphone, 
   Volume2, 
   VolumeX, 
@@ -13,6 +14,7 @@ import {
   ChevronRight,
   Globe
 } from 'lucide-react';
+import GoogleAccountCard from './GoogleAccountCard';
 import { sounds, triggerHaptic } from '../utils/audio';
 import { POPULAR_CURRENCIES, getCurrencyConfig } from '../utils/currencies';
 import { formatMoney } from '../utils/storage';
@@ -25,25 +27,33 @@ export default function SettingsView({
   onToggleSound,
   hapticsEnabled,
   onToggleHaptics,
-  cycleType,
-  onCycleTypeChange,
   onResetData,
   onExportData,
+  onImportData,
   deferredPrompt,
   isInstalled
 }) {
-  const [deviceOS, setDeviceOS] = useState('unknown');
+  const [deviceOS] = useState(() => {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera || '';
+    if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) return 'ios';
+    if (/android/i.test(userAgent)) return 'android';
+    return 'desktop';
+  });
+  const [importStatus, setImportStatus] = useState('');
+  const importInputRef = useRef(null);
 
-  useEffect(() => {
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
-      setDeviceOS('ios');
-    } else if (/android/i.test(userAgent)) {
-      setDeviceOS('android');
-    } else {
-      setDeviceOS('desktop');
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!window.confirm('Importing replaces all current pockets, balances and transactions with the backup. Continue?')) return;
+    const ok = await onImportData(file);
+    setImportStatus(ok ? 'Backup restored.' : 'That file is not a valid Pockets backup.');
+    if (ok) {
+      sounds.playSuccess();
+      triggerHaptic('success');
     }
-  }, []);
+  };
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
@@ -60,6 +70,9 @@ export default function SettingsView({
 
   return (
     <div className="settings-view animate-fade-in">
+      {/* 0. Google account (hidden until a client ID is configured) */}
+      <GoogleAccountCard />
+
       {/* 1. Currency & Units Selector */}
       <div className="settings-section glass-panel">
         <div className="settings-heading-row">
@@ -217,8 +230,21 @@ export default function SettingsView({
             <span>Export Pocket Data (JSON Backup)</span>
           </button>
 
-          <button 
-            className="settings-action-btn btn-danger-outline" 
+          <button className="settings-action-btn" onClick={() => importInputRef.current?.click()}>
+            <FileUp size={18} />
+            <span>Import Backup (JSON)</span>
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept="application/json,.json"
+            onChange={handleImportFile}
+            style={{ display: 'none' }}
+          />
+          {importStatus && <p className="toggle-sub" role="status">{importStatus}</p>}
+
+          <button
+            className="settings-action-btn btn-danger-outline"
             onClick={() => {
               if (window.confirm("Reset all pockets and transactions back to the clean starter template?")) {
                 sounds.playTap();

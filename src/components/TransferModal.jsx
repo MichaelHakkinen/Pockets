@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, ArrowRightLeft, Check, AlertCircle } from 'lucide-react';
 import { formatMoney } from '../utils/storage';
 import { sounds, triggerHaptic } from '../utils/audio';
@@ -13,27 +13,19 @@ export default function TransferModal({
   currency,
   onConfirmTransfer
 }) {
-  const [fromId, setFromId] = useState('');
-  const [toId, setToId] = useState('');
+  // The parent remounts this modal each time it opens (via `key`), so these
+  // initial values act as the per-open reset.
+  const [fromId, setFromId] = useState(initialSourcePocket ? initialSourcePocket.id : 'unallocated');
+  const [toId, setToId] = useState(() => {
+    if (initialSourcePocket) {
+      return pockets.find(p => p.id !== initialSourcePocket.id)?.id ?? 'unallocated';
+    }
+    return pockets[0]?.id ?? '';
+  });
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
 
   const { modalRef, isNudging, handleBackdropClick } = useModalFocus(isOpen, onClose);
-
-  useEffect(() => {
-    if (initialSourcePocket) {
-      setFromId(initialSourcePocket.id);
-      const other = pockets.find(p => p.id !== initialSourcePocket.id);
-      setToId(other ? other.id : 'unallocated');
-    } else {
-      setFromId('unallocated');
-      if (pockets.length > 0) {
-        setToId(pockets[0].id);
-      }
-    }
-    setAmount('');
-    setError('');
-  }, [isOpen, initialSourcePocket, pockets]);
 
   if (!isOpen) return null;
 
@@ -157,9 +149,18 @@ export default function TransferModal({
           <div className="form-group">
             <div className="split-amount-header">
               <label className="form-label">Amount</label>
-              <span className="available-hint">
-                Available: <strong className="num-mono">{formatMoney(maxTransferable, currency)}</strong>
-              </span>
+              <button
+                type="button"
+                className="link-helper-btn"
+                onClick={() => {
+                  sounds.playTap();
+                  triggerHaptic('light');
+                  setAmount(maxTransferable.toString());
+                }}
+                title="Transfer all available balance"
+              >
+                <span>Available: {formatMoney(maxTransferable, currency)}</span>
+              </button>
             </div>
             <div className="amount-input-box">
               <span className="currency-prefix">{currency}</span>

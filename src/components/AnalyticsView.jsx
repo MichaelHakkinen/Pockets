@@ -1,28 +1,17 @@
 import React from 'react';
-import { 
-  PieChart, 
-  TrendingUp, 
-  TrendingDown, 
-  ShieldCheck, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Sparkles, 
-  Wallet,
-  ArrowUpRight
+import {
+  ShieldCheck,
+  Sparkles
 } from 'lucide-react';
 import { POCKET_COLORS, formatMoney } from '../utils/storage';
 
-export default function AnalyticsView({ 
-  pockets, 
-  unallocatedFunds, 
-  transactions, 
-  currency,
-  onOpenSplit 
+export default function AnalyticsView({
+  pockets,
+  unallocatedFunds,
+  currency
 }) {
   const totalBalance = pockets.reduce((sum, p) => sum + (Number(p.balance) || 0), 0);
-  const totalTarget = pockets.reduce((sum, p) => sum + (Number(p.target) || 0), 0);
   const totalSpent = pockets.reduce((sum, p) => sum + (Number(p.spent) || 0), 0);
-  const netWorth = totalBalance + unallocatedFunds;
 
   // Health Score calculation (0 to 100)
   // Penalize overspent pockets and pockets with critical low balance (<15%)

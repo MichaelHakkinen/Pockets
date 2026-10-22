@@ -1,5 +1,5 @@
 import React from 'react';
-import { Minus, Plus, MoreHorizontal, ArrowRightLeft, Sparkles, AlertTriangle } from 'lucide-react';
+import { Minus, Plus, MoreHorizontal, ArrowRightLeft, AlertTriangle } from 'lucide-react';
 import { POCKET_COLORS, formatMoney } from '../utils/storage';
 import { sounds, triggerHaptic } from '../utils/audio';
 

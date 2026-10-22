@@ -2,6 +2,7 @@
   "name": "Pockets - Money Management",
   "short_name": "Pockets",
   "description": "Smart percentage-based envelope budgeting and pocket money management progressive web app",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -13,7 +14,7 @@
       "src": "favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "icon-192.png",
@@ -25,7 +26,13 @@
       "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "categories": ["finance", "productivity", "utilities"]

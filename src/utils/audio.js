@@ -112,7 +112,10 @@ class SoundEffects {
 
 export const sounds = new SoundEffects();
 
+export const haptics = { enabled: true };
+
 export function triggerHaptic(type = 'light') {
+  if (!haptics.enabled) return;
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     try {
       if (type === 'light') navigator.vibrate(12);

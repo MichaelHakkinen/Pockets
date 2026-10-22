@@ -1,16 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  X, 
-  Sparkles, 
-  Check, 
-  Percent, 
-  Sliders, 
-  Scale, 
-  AlertCircle, 
-  RefreshCw, 
-  PieChart, 
-  ShieldCheck, 
-  ArrowRight 
+import React, { useState } from 'react';
+import {
+  X,
+  Sparkles,
+  Check,
+  Percent,
+  Sliders,
+  Scale
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { formatMoney, POCKET_COLORS } from '../utils/storage';
@@ -26,39 +21,31 @@ export default function SplitMoneyModal({
   currency, 
   onConfirmSplit 
 }) {
-  const [totalToSplit, setTotalToSplit] = useState('1000');
+  // The parent remounts this modal each time it opens (via `key`), so these
+  // initial values act as the per-open reset.
+  const [totalToSplit, setTotalToSplit] = useState(String(unallocatedFunds > 0 ? unallocatedFunds : 1000));
   // Local editable percentages for each pocket: { [pocketId]: number }
-  const [sliderPercentages, setSliderPercentages] = useState({});
+  const [sliderPercentages, setSliderPercentages] = useState(() => {
+    const initialPcts = {};
+    let totalExisting = 0;
+    pockets.forEach(p => {
+      const val = typeof p.percentage === 'number' ? p.percentage : 0;
+      initialPcts[p.id] = val;
+      totalExisting += val;
+    });
+
+    // If existing percentages don't add to 100, distribute evenly
+    if (totalExisting === 0 && pockets.length > 0) {
+      const even = Math.floor(100 / pockets.length);
+      pockets.forEach((p, idx) => {
+        initialPcts[p.id] = idx === pockets.length - 1 ? 100 - (even * (pockets.length - 1)) : even;
+      });
+    }
+    return initialPcts;
+  });
   const [saveAsDefault, setSaveAsDefault] = useState(true);
 
   const { modalRef, isNudging, handleBackdropClick } = useModalFocus(isOpen, onClose);
-
-  // Initialize slider percentages when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      const initialAmount = unallocatedFunds > 0 ? unallocatedFunds : 1000;
-      setTotalToSplit(initialAmount.toString());
-
-      // Populate local percentages from pockets
-      const initialPcts = {};
-      let totalExisting = 0;
-      pockets.forEach(p => {
-        const val = typeof p.percentage === 'number' ? p.percentage : 0;
-        initialPcts[p.id] = val;
-        totalExisting += val;
-      });
-
-      // If existing percentages don't add to 100, normalize or distribute evenly
-      if (totalExisting === 0 && pockets.length > 0) {
-        const even = Math.floor(100 / pockets.length);
-        pockets.forEach((p, idx) => {
-          initialPcts[p.id] = idx === pockets.length - 1 ? 100 - (even * (pockets.length - 1)) : even;
-        });
-      }
-
-      setSliderPercentages(initialPcts);
-    }
-  }, [isOpen, pockets, unallocatedFunds]);
 
   if (!isOpen) return null;
 
@@ -211,9 +198,15 @@ export default function SplitMoneyModal({
                 <button
                   type="button"
                   className="link-helper-btn"
-                  onClick={() => setTotalToSplit(unallocatedFunds.toString())}
+                  onClick={() => {
+                    sounds.playTap();
+                    triggerHaptic('light');
+                    setTotalToSplit(unallocatedFunds.toString());
+                  }}
+                  title="Fill with available unallocated ready funds"
                 >
-                  Use Ready Funds ({formatMoney(unallocatedFunds, currency)})
+                  <Sparkles size={12} />
+                  <span>Use Ready Funds ({formatMoney(unallocatedFunds, currency)})</span>
                 </button>
               )}
             </div>

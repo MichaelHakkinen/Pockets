@@ -1,14 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   Percent, 
   Plus, 
-  Trash2, 
-  Sparkles, 
-  Check, 
-  AlertCircle, 
-  ArrowRight, 
-  Sliders, 
-  DollarSign, 
+  AlertCircle,
+  ArrowRight,
+  DollarSign,
   Scale
 } from 'lucide-react';
 import { POCKET_COLORS, getTotalPercentage, normalizePercentages, formatMoney } from '../utils/storage';
@@ -21,7 +17,6 @@ export default function PercentageRulesManager({
   onOpenInsertMoney,
   onAddNewPocket
 }) {
-  const [editingId, setEditingId] = useState(null);
   const totalPercentage = getTotalPercentage(pockets);
   const isExactly100 = totalPercentage === 100;
   const sampleInsertAmount = 1000;

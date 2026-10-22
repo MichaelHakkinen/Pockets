@@ -141,12 +141,62 @@ export const INITIAL_TRANSACTIONS = [
 
 export const STORAGE_KEY = 'pockets_budget_app_v2';
 
+let idCounter = 0;
+export function newId(prefix) {
+  idCounter += 1;
+  return `${prefix}-${Date.now().toString(36)}-${idCounter}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+const toNum = (v, fallback = 0) => (v !== null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : fallback);
+
+// Validates untrusted data (localStorage or an imported backup). Invalid
+// parts come back undefined so callers can fall back to their defaults.
+export function sanitizeState(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const pockets = Array.isArray(raw.pockets)
+    ? raw.pockets
+        .filter(p => p && typeof p === 'object' && typeof p.id === 'string' && typeof p.name === 'string')
+        .map(p => ({
+          ...p,
+          emoji: typeof p.emoji === 'string' && p.emoji ? p.emoji : '👛',
+          color: typeof p.color === 'string' ? p.color : 'emerald',
+          category: typeof p.category === 'string' ? p.category : 'Needs',
+          note: typeof p.note === 'string' ? p.note : '',
+          target: Math.max(1, toNum(p.target, 1)),
+          balance: toNum(p.balance),
+          spent: toNum(p.spent),
+          percentage: toNum(p.percentage)
+        }))
+    : undefined;
+
+  const transactions = Array.isArray(raw.transactions)
+    ? raw.transactions
+        .filter(t => t && typeof t === 'object' && typeof t.id === 'string')
+        .map(t => ({
+          ...t,
+          amount: toNum(t.amount),
+          date: typeof t.date === 'string' ? t.date : new Date().toISOString()
+        }))
+    : undefined;
+
+  return {
+    pockets,
+    transactions,
+    unallocatedFunds: typeof raw.unallocatedFunds === 'number' && Number.isFinite(raw.unallocatedFunds) ? raw.unallocatedFunds : undefined,
+    currency: typeof raw.currency === 'string' && raw.currency ? raw.currency : undefined,
+    soundEnabled: typeof raw.soundEnabled === 'boolean' ? raw.soundEnabled : undefined,
+    hapticsEnabled: typeof raw.hapticsEnabled === 'boolean' ? raw.hapticsEnabled : undefined,
+    cycleType: typeof raw.cycleType === 'string' ? raw.cycleType : undefined
+  };
+}
+
 export function loadSavedState() {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    return sanitizeState(JSON.parse(raw));
   } catch (e) {
     console.error('Failed to parse saved state:', e);
     return null;

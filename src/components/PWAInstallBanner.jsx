@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, X, Smartphone, ArrowRight } from 'lucide-react';
+import { X, Smartphone, ArrowRight } from 'lucide-react';
 import { sounds, triggerHaptic } from '../utils/audio';
 
 export default function PWAInstallBanner({ deferredPrompt, isInstalled, onOpenInstallGuide }) {

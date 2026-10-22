@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Filter, Trash2, ArrowDownRight, ArrowUpRight, ArrowRightLeft, Calendar } from 'lucide-react';
+import { Search, Filter, Trash2, ArrowDownRight, ArrowUpRight, ArrowRightLeft } from 'lucide-react';
 import { formatMoney } from '../utils/storage';
 import { sounds, triggerHaptic } from '../utils/audio';
 
@@ -22,7 +22,14 @@ export default function TransactionsView({
   });
 
   const handleDelete = (tx) => {
-    if (window.confirm(`Undo transaction "${tx.note}" (${currency}${tx.amount})? This will restore the balance back to "${tx.pocketName}".`)) {
+    const effect = {
+      spend: `put the money back into "${tx.pocketName}"`,
+      transfer: 'move the money back where it came from',
+      deposit: tx.category === 'Income' || tx.allocations
+        ? 'take the money back out of the balances it was added to'
+        : 'only remove this entry (balances stay as they are)'
+    }[tx.type] || 'only remove this entry';
+    if (window.confirm(`Undo "${tx.note}" (${formatMoney(tx.amount, currency)})? This will ${effect}.`)) {
       sounds.playTap();
       triggerHaptic('warning');
       onDeleteTransaction(tx.id);

@@ -5,28 +5,23 @@ import {
   Clock, 
   Settings as SettingsIcon, 
   Plus, 
-  Minus, 
-  Sparkles, 
-  ArrowRightLeft, 
-  DollarSign, 
-  SlidersHorizontal,
+  Minus,
   Sliders,
   Smartphone,
   Maximize2,
-  Calendar,
-  AlertCircle,
   Percent
 } from 'lucide-react';
 
-import { 
-  INITIAL_POCKETS, 
-  INITIAL_TRANSACTIONS, 
-  loadSavedState, 
-  saveState, 
-  formatMoney,
-  getTotalPercentage
+import {
+  INITIAL_POCKETS,
+  INITIAL_TRANSACTIONS,
+  loadSavedState,
+  saveState,
+  sanitizeState,
+  newId,
+  formatMoney
 } from './utils/storage';
-import { sounds, triggerHaptic } from './utils/audio';
+import { sounds, haptics, triggerHaptic } from './utils/audio';
 
 import PocketCard from './components/PocketCard';
 import SpendModal from './components/SpendModal';
@@ -47,40 +42,15 @@ import './App.css';
 
 export default function App() {
   // --- Persistent State ---
-  const [pockets, setPockets] = useState(() => {
-    const saved = loadSavedState();
-    return saved?.pockets || INITIAL_POCKETS;
-  });
+  const [saved] = useState(loadSavedState);
 
-  const [unallocatedFunds, setUnallocatedFunds] = useState(() => {
-    const saved = loadSavedState();
-    return typeof saved?.unallocatedFunds === 'number' ? saved.unallocatedFunds : 420.00;
-  });
-
-  const [transactions, setTransactions] = useState(() => {
-    const saved = loadSavedState();
-    return saved?.transactions || INITIAL_TRANSACTIONS;
-  });
-
-  const [currency, setCurrency] = useState(() => {
-    const saved = loadSavedState();
-    return saved?.currency || '$';
-  });
-
-  const [soundEnabled, setSoundEnabled] = useState(() => {
-    const saved = loadSavedState();
-    return typeof saved?.soundEnabled === 'boolean' ? saved.soundEnabled : true;
-  });
-
-  const [hapticsEnabled, setHapticsEnabled] = useState(() => {
-    const saved = loadSavedState();
-    return typeof saved?.hapticsEnabled === 'boolean' ? saved.hapticsEnabled : true;
-  });
-
-  const [cycleType, setCycleType] = useState(() => {
-    const saved = loadSavedState();
-    return saved?.cycleType || 'Monthly';
-  });
+  const [pockets, setPockets] = useState(saved?.pockets || INITIAL_POCKETS);
+  const [unallocatedFunds, setUnallocatedFunds] = useState(saved?.unallocatedFunds ?? 420.00);
+  const [transactions, setTransactions] = useState(saved?.transactions || INITIAL_TRANSACTIONS);
+  const [currency, setCurrency] = useState(saved?.currency || '$');
+  const [soundEnabled, setSoundEnabled] = useState(saved?.soundEnabled ?? true);
+  const [hapticsEnabled, setHapticsEnabled] = useState(saved?.hapticsEnabled ?? true);
+  const [cycleType, setCycleType] = useState(saved?.cycleType || 'Monthly');
 
   // --- UI Navigation State ---
   const [activeTab, setActiveTab] = useState('pockets'); // 'pockets' | 'analytics' | 'activity' | 'settings'
@@ -105,22 +75,13 @@ export default function App() {
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
   const [incomeAmount, setIncomeAmount] = useState('');
 
-  const isAnyModalOpen = isSpendOpen || isSplitOpen || isPocketModalOpen || isTransferOpen || isIncomeModalOpen || isCurrencyModalOpen;
-
-  useEffect(() => {
-    if (isAnyModalOpen) {
-      document.body.classList.add('modal-open');
-    } else {
-      document.body.classList.remove('modal-open');
-    }
-    return () => {
-      document.body.classList.remove('modal-open');
-    };
-  }, [isAnyModalOpen]);
 
   // --- PWA State ---
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [isInstalled] = useState(() =>
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true
+  );
 
   // Persist state changes
   useEffect(() => {
@@ -134,6 +95,7 @@ export default function App() {
       cycleType
     });
     sounds.enabled = soundEnabled;
+    haptics.enabled = hapticsEnabled;
   }, [pockets, unallocatedFunds, transactions, currency, soundEnabled, hapticsEnabled, cycleType]);
 
   // PWA beforeinstallprompt and standalone check
@@ -145,13 +107,6 @@ export default function App() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
 
-    if (
-      window.matchMedia('(display-mode: standalone)').matches ||
-      window.navigator.standalone === true
-    ) {
-      setIsInstalled(true);
-    }
-
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
     };
@@ -159,9 +114,21 @@ export default function App() {
 
   // --- Handlers ---
 
+  const round2 = (n) => Math.round(n * 100) / 100;
+
+  // Adds `delta` (may be negative) to a pocket, or to the unallocated pool.
+  // Silently skips pockets that no longer exist.
+  const applyMoneyMove = (id, delta) => {
+    if (id === 'unallocated') {
+      setUnallocatedFunds(prev => round2(prev + delta));
+    } else {
+      setPockets(prev => prev.map(p => (p.id === id ? { ...p, balance: round2(p.balance + delta) } : p)));
+    }
+  };
+
   // 1. Spend / Deduct from Pocket
   const handleConfirmSpend = (spendData) => {
-    const { pocketId, amount, note, date, type, category } = spendData;
+    const { pocketId, amount, note, date, category } = spendData;
 
     setPockets(prev => prev.map(p => {
       if (p.id === pocketId) {
@@ -175,7 +142,7 @@ export default function App() {
     }));
 
     const newTx = {
-      id: `tx-${Date.now()}`,
+      id: newId('tx'),
       pocketId,
       pocketName: spendData.pocketName,
       amount,
@@ -202,76 +169,53 @@ export default function App() {
       };
     }));
 
-    // Adjust unallocated pool: if totalSplit was from unallocated, reduce by (totalSplit - leftover)
-    setUnallocatedFunds(prev => {
-      if (prev >= totalSplit) {
-        return Math.round((prev - totalSplit + leftover) * 100) / 100;
-      } else {
-        return Math.round(leftover * 100) / 100;
-      }
-    });
+    // The split draws on the unallocated pool first; anything beyond the pool is
+    // treated as fresh money. Whatever the sliders leave unassigned stays in the pool.
+    const fromPool = Math.min(Math.max(unallocatedFunds, 0), totalSplit);
+    setUnallocatedFunds(prev => Math.round((Math.max(prev, 0) - fromPool + leftover) * 100) / 100);
 
     const newTx = {
-      id: `tx-${Date.now()}`,
+      id: newId('tx'),
       pocketId: 'all',
       pocketName: 'Split Allocation',
       amount: totalSplit,
       note: `Split across ${Object.keys(allocations).length} pockets`,
       date: new Date().toISOString(),
       type: 'deposit',
-      category: 'Allocation'
+      category: 'Allocation',
+      // Kept so the split can be undone from the Activity tab
+      allocations,
+      fromPool,
+      leftover
     };
 
     setTransactions(prev => [newTx, ...prev]);
   };
 
   // 3. Quick Top-Up a single pocket
-  const handleQuickAdd = (pocket) => {
-    // If we have unallocated funds, transfer from unallocated
+  const handleQuickAdd = () => {
     setTransferSourcePocket(null);
     setIsTransferOpen(true);
   };
 
   // 4. Transfer between pockets
   const handleConfirmTransfer = ({ fromId, toId, amount }) => {
-    let fromName = 'Unallocated';
-    let toName = 'Unallocated';
+    const nameOf = (id) => (id === 'unallocated' ? 'Unallocated' : pockets.find(p => p.id === id)?.name || 'Unknown');
 
-    // Update source
-    if (fromId === 'unallocated') {
-      setUnallocatedFunds(prev => Math.round((prev - amount) * 100) / 100);
-    } else {
-      setPockets(prev => prev.map(p => {
-        if (p.id === fromId) {
-          fromName = p.name;
-          return { ...p, balance: Math.round((p.balance - amount) * 100) / 100 };
-        }
-        return p;
-      }));
-    }
-
-    // Update destination
-    if (toId === 'unallocated') {
-      setUnallocatedFunds(prev => Math.round((prev + amount) * 100) / 100);
-    } else {
-      setPockets(prev => prev.map(p => {
-        if (p.id === toId) {
-          toName = p.name;
-          return { ...p, balance: Math.round((p.balance + amount) * 100) / 100 };
-        }
-        return p;
-      }));
-    }
+    applyMoneyMove(fromId, -amount);
+    applyMoneyMove(toId, amount);
 
     const newTx = {
-      id: `tx-${Date.now()}`,
+      id: newId('tx'),
       pocketId: toId,
-      pocketName: `${fromName} → ${toName}`,
+      pocketName: `${nameOf(fromId)} → ${nameOf(toId)}`,
       amount,
       note: `Moved between tiny wallets`,
       date: new Date().toISOString(),
       type: 'transfer',
-      category: 'Transfer'
+      category: 'Transfer',
+      fromId,
+      toId
     };
 
     setTransactions(prev => [newTx, ...prev]);
@@ -308,12 +252,21 @@ export default function App() {
         if (p.id === tx.pocketId) {
           return {
             ...p,
-            balance: Math.round((p.balance + tx.amount) * 100) / 100,
-            spent: Math.max(0, Math.round((p.spent - tx.amount) * 100) / 100)
+            balance: round2(p.balance + tx.amount),
+            spent: Math.max(0, round2(p.spent - tx.amount))
           };
         }
         return p;
       }));
+    } else if (tx.type === 'transfer' && tx.fromId && tx.toId) {
+      applyMoneyMove(tx.toId, -tx.amount);
+      applyMoneyMove(tx.fromId, tx.amount);
+    } else if (tx.type === 'deposit' && tx.category === 'Income') {
+      applyMoneyMove('unallocated', -tx.amount);
+    } else if (tx.type === 'deposit' && tx.allocations) {
+      // Revert a split: take the money back out of the pockets and restore the pool
+      Object.entries(tx.allocations).forEach(([pocketId, added]) => applyMoneyMove(pocketId, -added));
+      setUnallocatedFunds(prev => round2(prev - (tx.leftover || 0) + (tx.fromPool || 0)));
     }
 
     setTransactions(prev => prev.filter(t => t.id !== txId));
@@ -331,7 +284,7 @@ export default function App() {
     setUnallocatedFunds(prev => Math.round((prev + val) * 100) / 100);
 
     const newTx = {
-      id: `tx-${Date.now()}`,
+      id: newId('tx'),
       pocketId: 'unallocated',
       pocketName: 'Incoming Funds',
       amount: val,
@@ -352,28 +305,46 @@ export default function App() {
     setUnallocatedFunds(420.00);
     setTransactions(INITIAL_TRANSACTIONS);
     setCurrency('$');
+    setCycleType('Monthly');
   };
 
   const handleExportData = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+    const blob = new Blob([JSON.stringify({
       pockets,
       unallocatedFunds,
       transactions,
       currency,
+      cycleType,
       exportedAt: new Date().toISOString()
-    }, null, 2));
+    }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
     const dlAnchor = document.createElement('a');
-    dlAnchor.setAttribute("href", dataStr);
-    dlAnchor.setAttribute("download", `pockets_backup_${new Date().toISOString().slice(0, 10)}.json`);
+    dlAnchor.href = url;
+    dlAnchor.download = `pockets_backup_${new Date().toISOString().slice(0, 10)}.json`;
     dlAnchor.click();
+    URL.revokeObjectURL(url);
   };
 
+  // Returns true if the file was a usable backup and has been applied
+  const handleImportData = async (file) => {
+    try {
+      const data = sanitizeState(JSON.parse(await file.text()));
+      if (!data || !data.pockets) return false;
+      setPockets(data.pockets);
+      setUnallocatedFunds(data.unallocatedFunds ?? 0);
+      setTransactions(data.transactions || []);
+      if (data.currency) setCurrency(data.currency);
+      if (data.cycleType) setCycleType(data.cycleType);
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
 
   // Calculations for top summary
   const totalInPockets = pockets.reduce((sum, p) => sum + (Number(p.balance) || 0), 0);
   const totalTargetBudget = pockets.reduce((sum, p) => sum + (Number(p.target) || 0), 0);
-  const totalSpentAll = pockets.reduce((sum, p) => sum + (Number(p.spent) || 0), 0);
 
   // Currency configuration
   const currConfig = getCurrencyConfig(currency);
@@ -384,7 +355,7 @@ export default function App() {
     if (pocketFilter === 'needs') return p.category === 'Needs';
     if (pocketFilter === 'wants') return p.category === 'Wants';
     if (pocketFilter === 'savings') return p.category === 'Savings';
-    if (pocketFilter === 'low') return (p.balance / p.target) <= 0.20 && p.balance >= 0;
+    if (pocketFilter === 'low') return p.target > 0 && (p.balance / p.target) <= 0.20 && p.balance >= 0;
     if (pocketFilter === 'overspent') return p.balance < 0;
     return true;
   });
@@ -554,7 +525,7 @@ export default function App() {
                         setSpendPocket(p);
                         setIsSpendOpen(true);
                       }}
-                      onQuickAdd={(p) => handleQuickAdd(p)}
+                      onQuickAdd={handleQuickAdd}
                       onEdit={(p) => {
                         setPocketToEdit(p);
                         setIsPocketModalOpen(true);
@@ -587,9 +558,7 @@ export default function App() {
             <AnalyticsView
               pockets={pockets}
               unallocatedFunds={unallocatedFunds}
-              transactions={transactions}
               currency={currency}
-              onOpenSplit={() => setIsSplitOpen(true)}
             />
           )}
 
@@ -611,10 +580,9 @@ export default function App() {
               onToggleSound={() => setSoundEnabled(!soundEnabled)}
               hapticsEnabled={hapticsEnabled}
               onToggleHaptics={() => setHapticsEnabled(!hapticsEnabled)}
-              cycleType={cycleType}
-              onCycleTypeChange={setCycleType}
               onResetData={handleResetData}
               onExportData={handleExportData}
+              onImportData={handleImportData}
               deferredPrompt={deferredPrompt}
               isInstalled={isInstalled}
             />
@@ -697,6 +665,7 @@ export default function App() {
 
       {/* 1. Spend / Deduct Modal */}
       <SpendModal
+        key={isSpendOpen ? `open-${spendPocket?.id ?? 'any'}` : 'closed'}
         isOpen={isSpendOpen}
         onClose={() => setIsSpendOpen(false)}
         pockets={pockets}
@@ -707,6 +676,7 @@ export default function App() {
 
       {/* 2. Split Money Allocation Wizard */}
       <SplitMoneyModal
+        key={isSplitOpen ? 'open' : 'closed'}
         isOpen={isSplitOpen}
         onClose={() => setIsSplitOpen(false)}
         pockets={pockets}
@@ -717,6 +687,7 @@ export default function App() {
 
       {/* 3. Create / Edit Pocket Modal */}
       <PocketModal
+        key={isPocketModalOpen ? `open-${pocketToEdit?.id ?? 'new'}` : 'closed'}
         isOpen={isPocketModalOpen}
         onClose={() => setIsPocketModalOpen(false)}
         pocketToEdit={pocketToEdit}
@@ -728,6 +699,7 @@ export default function App() {
 
       {/* 4. Transfer Between Pockets Modal */}
       <TransferModal
+        key={isTransferOpen ? `open-${transferSourcePocket?.id ?? 'pool'}` : 'closed'}
         isOpen={isTransferOpen}
         onClose={() => setIsTransferOpen(false)}
         pockets={pockets}

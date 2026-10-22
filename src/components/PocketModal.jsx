@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Check, Trash2, Palette, Smile, Plus, Layers } from 'lucide-react';
-import { POCKET_COLORS } from '../utils/storage';
+import { POCKET_COLORS, newId } from '../utils/storage';
 import { sounds, triggerHaptic } from '../utils/audio';
 import { useModalFocus } from '../hooks/useModalFocus';
 
@@ -22,18 +22,22 @@ export default function PocketModal({
   onDeletePocket,
   existingPockets = []
 }) {
-  const [name, setName] = useState('');
-  const [emoji, setEmoji] = useState('👛');
-  const [customEmoji, setCustomEmoji] = useState('');
-  const [target, setTarget] = useState('300');
-  const [balance, setBalance] = useState('300');
-  const [category, setCategory] = useState('Needs');
+  // The parent remounts this modal each time it opens (via `key`), so these
+  // initial values act as the per-open reset.
+  const [name, setName] = useState(pocketToEdit?.name ?? '');
+  const [emoji, setEmoji] = useState(pocketToEdit?.emoji || '👛');
+  const [customEmoji, setCustomEmoji] = useState(
+    pocketToEdit && !CURATED_EMOJIS.includes(pocketToEdit.emoji) ? (pocketToEdit.emoji || '') : ''
+  );
+  const [target, setTarget] = useState(pocketToEdit ? String(pocketToEdit.target) : '300');
+  const [balance, setBalance] = useState(pocketToEdit ? String(pocketToEdit.balance) : '0');
+  const [category, setCategory] = useState(pocketToEdit?.category || 'Needs');
   const [customCategories, setCustomCategories] = useState([]);
   const [showCustomCat, setShowCustomCat] = useState(false);
   const [newCatInput, setNewCatInput] = useState('');
-  const [color, setColor] = useState('emerald');
-  const [percentage, setPercentage] = useState('15');
-  const [note, setNote] = useState('');
+  const [color, setColor] = useState(pocketToEdit?.color || 'emerald');
+  const [percentage, setPercentage] = useState(String(pocketToEdit?.percentage ?? 15));
+  const [note, setNote] = useState(pocketToEdit?.note || '');
   const [error, setError] = useState('');
 
   const { modalRef, isNudging, handleBackdropClick } = useModalFocus(isOpen, onClose);
@@ -45,33 +49,6 @@ export default function PocketModal({
     ...customCategories,
     ...(pocketToEdit?.category ? [pocketToEdit.category] : [])
   ]));
-
-  useEffect(() => {
-    if (pocketToEdit) {
-      setName(pocketToEdit.name);
-      setEmoji(pocketToEdit.emoji || '👛');
-      setCustomEmoji(CURATED_EMOJIS.includes(pocketToEdit.emoji) ? '' : (pocketToEdit.emoji || ''));
-      setTarget(pocketToEdit.target.toString());
-      setBalance(pocketToEdit.balance.toString());
-      setCategory(pocketToEdit.category || 'Needs');
-      setColor(pocketToEdit.color || 'emerald');
-      setPercentage((pocketToEdit.percentage ?? 15).toString());
-      setNote(pocketToEdit.note || '');
-    } else {
-      setName('');
-      setEmoji('👛');
-      setCustomEmoji('');
-      setTarget('300');
-      setBalance('0');
-      setCategory('Needs');
-      setColor('emerald');
-      setPercentage('15');
-      setNote('');
-    }
-    setShowCustomCat(false);
-    setNewCatInput('');
-    setError('');
-  }, [isOpen, pocketToEdit]);
 
   if (!isOpen) return null;
 
@@ -124,7 +101,7 @@ export default function PocketModal({
     triggerHaptic('medium');
 
     onSavePocket({
-      id: pocketToEdit ? pocketToEdit.id : `pkt-${Date.now()}`,
+      id: pocketToEdit ? pocketToEdit.id : newId('pkt'),
       name: name.trim(),
       emoji: emoji || '👛',
       target: Math.max(1, numTarget),

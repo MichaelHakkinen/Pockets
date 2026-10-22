@@ -32,6 +32,9 @@ jobs:
 
       - name: Build Pockets
         run: npm run build
+        env:
+          # Set under Settings > Secrets and variables > Actions > Variables
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
